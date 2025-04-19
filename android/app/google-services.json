@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "133507150925",
+    "project_id": "fourcoop-19d08",
+    "storage_bucket": "fourcoop-19d08.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:133507150925:android:c6afbe19485ab9bc20d804",
+        "android_client_info": {
+          "package_name": "com.domain.fourcoop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDuEHtzl5W-k4fYMX1XDvSPoEAUO5cuHmw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
