@@ -1,27 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProjectDetailPage extends StatelessWidget {
+  final String projetId;
+
+  const ProjectDetailPage({super.key, required this.projetId});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Détails du Projet')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text('Description complète du projet', style: Theme.of(context).textTheme.titleLarge),
-            SizedBox(height: 20),
-            Text('Détails, tâches, diagrammes...'),
-            Spacer(),
-            ElevatedButton.icon(
-              onPressed: () {
-                // Aller vers messagerie
-              },
-              icon: Icon(Icons.message),
-              label: Text("Messagerie"),
+      appBar: AppBar(title: const Text('Détails du projet')),
+      body: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('projets').doc(projetId).get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: Text('Projet introuvable.'));
+          }
+
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (data['imageUrl'] != null)
+                  Image.network(data['imageUrl']),
+                const SizedBox(height: 20),
+                Text(
+                  data['titre'] ?? 'Titre inconnu',
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Text(data['resume'] ?? 'Pas de résumé'),
+                const SizedBox(height: 20),
+                const Text('Description complète :', style: TextStyle(fontSize: 18)),
+                const SizedBox(height: 8),
+                Text(data['description'] ?? 'Aucune description fournie.'),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

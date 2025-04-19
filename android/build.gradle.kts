@@ -1,6 +1,12 @@
 buildscript {
+    repositories {
+        google()  // ✅ Ce dépôt est essentiel pour les outils Google
+        mavenCentral()  // ✅ Pour d'autres dépendances standard
+    }
+
     dependencies {
-        classpath 'com.google.gms:google-services:4.4.2' // utilise la version la plus récente ici
+        classpath ("com.android.tools.build:gradle:7.4.2")
+        classpath ("com.google.gms:google-services:4.4.2")  // ✅ La dépendance posant problème
     }
 }
 

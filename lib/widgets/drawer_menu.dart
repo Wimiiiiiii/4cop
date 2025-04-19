@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../pages/tasks_page.dart';
-import '../pages/home_page.dart';
+import '../pages/mes_projets.dart';
+import 'package:fourcoop/pages/home_page.dart';
 
 class DrawerMenu extends StatelessWidget {
   @override
