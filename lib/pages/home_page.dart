@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../widgets/drawer_menu.dart';
 import 'project_detail_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -24,6 +25,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+      drawer: DrawerMenu(),
       body: Column(
         children: [
           Padding(
