@@ -1,23 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'pages/mes_projets.dart';
 import 'pages/home_page.dart';
 
 class AuthPage extends StatefulWidget {
+  const AuthPage({Key? key}) : super(key: key);
+
   @override
   _AuthPageState createState() => _AuthPageState();
 }
 
 class _AuthPageState extends State<AuthPage> {
-  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nomController = TextEditingController();
   final _prenomController = TextEditingController();
   final _telephoneController = TextEditingController();
+
   bool isLogin = true;
   bool isLoading = false;
+  bool passwordVisibility = false;
+  final _formKey = GlobalKey<FormState>();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nomController.dispose();
+    _prenomController.dispose();
+    _telephoneController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    super.dispose();
+  }
 
   Future<void> handleAuth() async {
     if (!_formKey.currentState!.validate()) return;
@@ -56,112 +75,252 @@ class _AuthPageState extends State<AuthPage> {
         MaterialPageRoute(builder: (_) => HomePage()),
       );
     } on FirebaseAuthException catch (e) {
-      String errorMessage;
-
-      switch (e.code) {
-        case 'email-already-in-use':
-          errorMessage = "Cet email est déjà utilisé.";
-          break;
-        case 'user-not-found':
-          errorMessage = "Aucun utilisateur trouvé avec cet email.";
-          break;
-        case 'wrong-password':
-          errorMessage = "Mot de passe incorrect.";
-          break;
-        case 'invalid-email':
-          errorMessage = "Format d'email invalide.";
-          break;
-        case 'weak-password':
-          errorMessage = "Le mot de passe est trop faible.";
-          break;
-        default:
-          errorMessage = "Une erreur est survenue. Veuillez réessayer.";
+      String errorMessage = _getErrorMessage(e.code);
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage),
+          ));
+          } finally {
+          setState(() => isLoading = false);
+          }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-      );
-    }  catch (e, stacktrace) {
-  print("Erreur inattendue: $e");
-  print("Stacktrace: $stacktrace");
-
-  ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(
-  content: Text("Erreur: $e"),
-  backgroundColor: Colors.red,
-  ),
-  );
-}
-finally {
-      setState(() => isLoading = false);
+  String _getErrorMessage(String code) {
+    switch (code) {
+      case 'email-already-in-use': return "Cet email est déjà utilisé.";
+      case 'user-not-found': return "Aucun utilisateur trouvé avec cet email.";
+      case 'wrong-password': return "Mot de passe incorrect.";
+      case 'invalid-email': return "Format d'email invalide.";
+      case 'weak-password': return "Le mot de passe est trop faible.";
+      default: return "Une erreur est survenue. Veuillez réessayer.";
     }
   }
 
   @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    _nomController.dispose();
-    _prenomController.dispose();
-    _telephoneController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(isLogin ? 'Connexion' : 'Inscription')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              if (!isLogin) ...[
-                _buildTextField(_nomController, 'Nom'),
-                _buildTextField(_prenomController, 'Prénom'),
-                _buildTextField(_telephoneController, 'Téléphone', keyboardType: TextInputType.phone),
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: Scaffold(
+        body: Column(
+          children: [
+          // Header with gradient
+          Container(
+          width: double.infinity,
+          height: 300,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primary,
+                theme.colorScheme.error,
+                theme.colorScheme.tertiary,
               ],
-              _buildTextField(_emailController, 'Email', keyboardType: TextInputType.emailAddress),
-              _buildTextField(_passwordController, 'Mot de passe', obscureText: true),
-              const SizedBox(height: 20),
-              isLoading
-                  ? CircularProgressIndicator()
-                  : ElevatedButton(
-                onPressed: handleAuth,
-                child: Text(isLogin ? 'Se connecter' : "S'inscrire"),
+              stops: [0, 0.5, 1],
+              begin: AlignmentDirectional(-1, -1),
+              end: AlignmentDirectional(1, 1),
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0x00FFFFFF),
+                  theme.colorScheme.background,
+                ],
+                stops: [0, 1],
+                begin: AlignmentDirectional(0, -1),
+                end: AlignmentDirectional(0, 1),
               ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    isLogin = !isLogin;
-                    if (isLogin) {
-                      _nomController.clear();
-                      _prenomController.clear();
-                      _telephoneController.clear();
-                    }
-                  });
-                },
-                child: Text(isLogin ? "Créer un compte" : "J'ai déjà un compte"),
-              ),
-            ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Logo placeholder - replace with your image
+              Image.asset(
+                      'assets/images/4Cop.png',
+                        width: 137.9,
+                        height: 135.4,
+                        fit: BoxFit.cover,
+                      ),
+
+                SizedBox(height: 12),
+                Text(
+                  isLogin ? 'Connexion' : 'Inscription',
+                  style: GoogleFonts.interTight(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  isLogin
+                      ? 'Connectez-vous à votre compte'
+                      : 'Créez un nouveau compte',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: Colors.white70,
+                  ),
+
+                ),
+              ],
+            ),
           ),
         ),
+        // Form section
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                  if (!isLogin) ...[
+              _buildTextField(
+              controller: _nomController,
+              label: 'Nom',
+              isLast: false,
+            ),
+            SizedBox(height: 16),
+            _buildTextField(
+              controller: _prenomController,
+              label: 'Prénom',
+              isLast: false,
+            ),
+            SizedBox(height: 16),
+            _buildTextField(
+              controller: _telephoneController,
+              label: 'Téléphone',
+              keyboardType: TextInputType.phone,
+              isLast: false,
+            ),
+            SizedBox(height: 16),
+            ],
+          _buildTextField(
+          controller: _emailController,
+          label: 'Email',
+          focusNode: _emailFocusNode,
+          keyboardType: TextInputType.emailAddress,
+            isLast: false,
+          ),
+          SizedBox(height: 16),
+          _buildTextField(
+            controller: _passwordController,
+            label: 'Mot de passe',
+            focusNode: _passwordFocusNode,
+            obscureText: !passwordVisibility,
+            isLast: true,
+            suffixIcon: IconButton(
+              icon: Icon(
+                passwordVisibility
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                color: theme.colorScheme.secondary,
+              ),
+              onPressed: () => setState(() => passwordVisibility = !passwordVisibility),
+            ),
+          ),
+          SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: isLoading ? null : handleAuth,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: isLoading
+                  ? CircularProgressIndicator(color: Colors.white)
+                  : Text(
+                isLogin ? 'Se connecter' : "S'inscrire",
+                style: GoogleFonts.interTight(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+            TextButton(
+              onPressed: () => setState(() {
+                isLogin = !isLogin;
+                if (isLogin) {
+                  _nomController.clear();
+                  _prenomController.clear();
+                  _telephoneController.clear();
+                }
+              }),
+              child: Text(
+                isLogin ? "Créer un compte" : "J'ai déjà un compte",
+                style: GoogleFonts.inter(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+        ],
+        ),
+        ),
       ),
+    ),
+    ],
+    ),
+    ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label,
-      {bool obscureText = false, TextInputType keyboardType = TextInputType.text}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: TextFormField(
-        controller: controller,
-        decoration: InputDecoration(labelText: label, border: OutlineInputBorder()),
-        obscureText: obscureText,
-        keyboardType: keyboardType,
-        validator: (value) => value == null || value.trim().isEmpty ? 'Champ obligatoire' : null,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    FocusNode? focusNode,
+    TextInputType? keyboardType,
+    bool obscureText = false,
+    bool isLast = false,
+    Widget? suffixIcon,
+  }) {
+    final theme = Theme.of(context);
+
+    return TextFormField(
+      controller: controller,
+      focusNode: focusNode,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      textInputAction: isLast ? TextInputAction.done : TextInputAction.next,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.inter(
+          color: theme.colorScheme.secondary,
+        ),
+        filled: true,
+        fillColor: theme.colorScheme.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: theme.colorScheme.outline,
+            width: 2,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: theme.colorScheme.outline,
+            width: 2,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: theme.colorScheme.primary,
+            width: 2,
+          ),
+        ),
+        contentPadding: EdgeInsets.all(16),
+        suffixIcon: suffixIcon,
       ),
+      style: GoogleFonts.inter(
+        color: theme.colorScheme.onSurface,
+      ),
+      validator: (value) => value == null || value.isEmpty ? 'Ce champ est obligatoire' : null,
     );
   }
 }

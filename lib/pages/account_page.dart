@@ -1,26 +1,22 @@
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'user_model.dart';
-import 'user_repository.dart';
-import 'auth_page.dart'; // Pour accéder à l'utilisateur courant
+import 'package:image_picker/image_picker.dart';
 
-class EditProfilePage extends StatefulWidget {
-  const EditProfilePage({Key? key}) : super(key: key);
-
+class AccountPage extends StatefulWidget {
   @override
-  _EditProfilePageState createState() => _EditProfilePageState();
+  _AccountPageState createState() => _AccountPageState();
 }
 
-class _EditProfilePageState extends State<EditProfilePage> {
+class _AccountPageState extends State<AccountPage> {
+  final user = FirebaseAuth.instance.currentUser!;
   final _formKey = GlobalKey<FormState>();
-  late UserModel _currentUser;
-  final UserRepository _userRepository = UserRepository();
-  bool _isLoading = true;
-
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _bioController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
+  TextEditingController _nameController = TextEditingController();
+  String? _photoUrl;
+  File? _imageFile;
 
   @override
   void initState() {
@@ -29,145 +25,89 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _loadUserData() async {
-    final user = Provider.of<User?>(context, listen: false);
-    if (user != null) {
-      final userData = await _userRepository.getUser(user.uid);
-      if (userData != null) {
-        setState(() {
-          _currentUser = userData;
-          _nameController.text = userData.name;
-          _emailController.text = userData.email;
-          _bioController.text = userData.bio ?? '';
-          _phoneController.text = userData.phone ?? '';
-          _isLoading = false;
-        });
-      }
+    var snapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    var data = snapshot.data()!;
+    setState(() {
+      _nameController.text = data['nom'] ?? '';
+      _photoUrl = data['photo_url'];
+    });
+  }
+
+  Future<void> _pickImage() async {
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 70);
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
     }
   }
 
-  Future<void> _updateProfile() async {
+  Future<String?> _uploadImage(File image) async {
+    try {
+      final ref = FirebaseStorage.instance.ref().child('profile_pictures').child('${user.uid}.jpg');
+      await ref.putFile(image);
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print("Erreur d'upload: $e");
+      return null;
+    }
+  }
+
+  Future<void> _saveChanges() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
+      String? newPhotoUrl = _photoUrl;
+      if (_imageFile != null) {
+        newPhotoUrl = await _uploadImage(_imageFile!);
+      }
+
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'nom': _nameController.text,
+        'photo_url': newPhotoUrl,
       });
 
-      final updatedUser = UserModel(
-        uid: _currentUser.uid,
-        name: _nameController.text,
-        email: _emailController.text,
-        bio: _bioController.text,
-        phone: _phoneController.text,
-        photoUrl: _currentUser.photoUrl,
-      );
-
-      await _userRepository.updateUser(updatedUser);
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil mis à jour avec succès')),
-      );
-
-      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Profil mis à jour")));
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _bioController.dispose();
-    _phoneController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Modifier le profil'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _updateProfile,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      appBar: AppBar(title: Text("Paramètres du profil")),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              CircleAvatar(
-                radius: 50,
-                backgroundImage: _currentUser.photoUrl != null
-                    ? NetworkImage(_currentUser.photoUrl!)
-                    : null,
-                child: _currentUser.photoUrl == null
-                    ? const Icon(Icons.person, size: 50)
-                    : null,
+              GestureDetector(
+                onTap: _pickImage,
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundImage: _imageFile != null
+                      ? FileImage(_imageFile!)
+                      : _photoUrl != null
+                      ? NetworkImage(_photoUrl!) as ImageProvider
+                      : AssetImage('images/4Cop.png'),
+                  child: Align(
+                    alignment: Alignment.bottomRight,
+                    child: CircleAvatar(
+                      backgroundColor: Colors.white,
+                      radius: 16,
+                      child: Icon(Icons.edit, size: 18, color: Colors.black),
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nom',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer votre nom';
-                  }
-                  return null;
-                },
+                decoration: InputDecoration(labelText: "Nom"),
+                validator: (value) => value == null || value.isEmpty ? "Entrez un nom" : null,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer votre email';
-                  }
-                  if (!value.contains('@')) {
-                    return 'Veuillez entrer un email valide';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _bioController,
-                decoration: const InputDecoration(
-                  labelText: 'Bio',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Téléphone',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 24),
+              SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _updateProfile,
-                child: const Text('Enregistrer les modifications'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                ),
+                onPressed: _saveChanges,
+                child: Text("Enregistrer"),
               ),
             ],
           ),

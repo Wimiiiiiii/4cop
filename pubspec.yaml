@@ -39,9 +39,12 @@ dependencies:
   cloud_firestore: ^5.6.6
   firebase_storage: ^12.4.5
   image_picker: ^1.1.2
+  url_launcher: ^6.1.10
+  google_fonts: ^6.2.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  intl: ^0.20.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -63,7 +66,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-      - assets/images/imagepardefaut.jpg
+      - assets/images/4Cop.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
