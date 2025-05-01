@@ -44,7 +44,7 @@ class _MesProjetsState extends State<MesProjets> {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('projets')
-            .where('members', arrayContains: user.email)
+            .where('membres', arrayContains: user.email)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fourcoop/auth_page.dart';
 import 'package:fourcoop/pages/account_page.dart';
 import 'package:fourcoop/pages/home_page.dart';
+import 'package:fourcoop/pages/inbox_page.dart';
 import 'package:fourcoop/pages/mes_projets.dart';
 import 'package:fourcoop/pages/tasks_page.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -92,7 +93,7 @@ class DrawerMenu extends StatelessWidget {
                   backgroundColor: theme.colorScheme.surface,
                   backgroundImage: userData?['photo_url'] != null
                       ? NetworkImage(userData!['photo_url']!) as ImageProvider
-                      : const AssetImage('assets/images/default_profile.jpg'),
+                      : const AssetImage('assets/images/4Cop.png'),
                   child: userData?['photo_url'] == null
                       ? Icon(
                           Icons.person,
@@ -125,6 +126,12 @@ class DrawerMenu extends StatelessWidget {
                   icon: Icons.work,
                   title: 'Mes Projets',
                   page: MesProjets(), // Utilisation directe de la classe
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.message,
+                  title: 'Messagerie',
+                  page: InboxPage(), // Utilisation directe de la classe
                 ),
                 const Divider(height: 1),
                 _buildDrawerItem(

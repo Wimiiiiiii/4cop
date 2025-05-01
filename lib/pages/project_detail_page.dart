@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fourcoop/pages/EditProjetPage.dart';
+import 'package:fourcoop/pages/chat_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -99,75 +100,187 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
           final imageUrl = data['imageUrl'] as String?;
           final contact = data['contact'] as String?;
+          final currentUser = FirebaseAuth.instance.currentUser;
+          final isOwner = currentUser != null && data['proprietaire'] == currentUser.uid;
 
-          return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          return Stack(
             children: [
-              if (imageUrl != null && imageUrl.isNotEmpty)
-                _buildProjectImage(imageUrl, theme),
-              if (imageUrl == null || imageUrl.isEmpty)
-                _buildImagePlaceholder(theme),
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (imageUrl != null && imageUrl.isNotEmpty)
+                      _buildProjectImage(imageUrl, theme),
+                    if (imageUrl == null || imageUrl.isEmpty)
+                      _buildImagePlaceholder(theme),
 
-              const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-              Text(
-                data['titre'] ?? 'Titre non spécifié',
-                style: GoogleFonts.interTight(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+                    Text(
+                      data['titre'] ?? 'Titre non spécifié',
+                      style: GoogleFonts.interTight(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    _buildMetadataChips(data, createdAt, theme),
+                    const SizedBox(height: 16),
+
+                    _buildSectionTitle('Résumé'),
+                    const SizedBox(height: 8),
+                    Text(
+                      data['resume'] ?? 'Aucun résumé fourni',
+                      style: GoogleFonts.inter(fontSize: 15, height: 1.5),
+                    ),
+
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('Description'),
+                    const SizedBox(height: 8),
+                    Text(
+                      data['description'] ?? 'Aucune description disponible',
+                      style: GoogleFonts.inter(fontSize: 15, height: 1.5),
+                    ),
+
+                    if (data['duree'] != null) ...[
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Durée'),
+                      const SizedBox(height: 8),
+                      Text(
+                        data['duree'],
+                        style: GoogleFonts.inter(fontSize: 15),
+                      ),
+                    ],
+
+                    if (contact != null && contact.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      _buildSectionTitle('Contact'),
+                      const SizedBox(height: 8),
+                      _buildContactButton(contact, theme),
+                    ],
+
+                    const SizedBox(height: 100), // pour laisser la place au bouton flottant
+                  
+                  if (!isOwner) ...[
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('Actions'),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                final String ownerId = data['proprietaire'];
+                                print("Le owner est : $ownerId");
+                                final String userId = currentUser!.uid;
+                                final chatId = _generateChatId(userId, ownerId);
+
+                                // Vérifie si le chat existe déjà
+                                final chatDoc = await FirebaseFirestore.instance
+                                    .collection('chats')
+                                    .doc(chatId)
+                                    .get();
+
+                                if (!chatDoc.exists) {
+                                  // Création automatique du document chat avec participants
+                                  await FirebaseFirestore.instance
+                                      .collection('chats')
+                                      .doc(chatId)
+                                      .set({
+                                    'participants': [userId, ownerId],
+                                    'createdAt': FieldValue.serverTimestamp(),
+                                  });
+                                }
+
+                                // Navigation vers la page de discussion
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatPage(
+                                      chatId: chatId,
+                                      otherUserId: ownerId,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.chat),
+                              label: const Text('Contacter le porteur'),
+                            ),
+                          ),
+
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final user = FirebaseAuth.instance.currentUser;
+                              if (user != null) {
+                                await FirebaseFirestore.instance
+                                    .collection('projets')
+                                    .doc(widget.projetId)
+                                    .collection('candidatures')
+                                    .doc(user.uid)
+                                    .set({
+                                      'email': user.email,
+                                      'status': 'en attente',
+                                      'submittedAt': FieldValue.serverTimestamp(),
+                                    });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Candidature soumise')),
+                                );
+                              }
+                            },
+                            child: const Text('Soumettre sa candidature'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
 
-              _buildMetadataChips(data, createdAt, theme),
-              const SizedBox(height: 16),
-
-              _buildSectionTitle('Résumé'),
-              const SizedBox(height: 8),
-              Text(
-                data['resume'] ?? 'Aucun résumé fourni',
-                style: GoogleFonts.inter(fontSize: 15, height: 1.5),
-              ),
-
-              const SizedBox(height: 24),
-              _buildSectionTitle('Description'),
-              const SizedBox(height: 8),
-              Text(
-                data['description'] ?? 'Aucune description disponible',
-                style: GoogleFonts.inter(fontSize: 15, height: 1.5),
-              ),
-
-              if (data['duree'] != null) ...[
-                const SizedBox(height: 24),
-                _buildSectionTitle('Durée'),
-                const SizedBox(height: 8),
-                Text(
-                  data['duree'],
-                  style: GoogleFonts.inter(fontSize: 15),
+              if (isOwner)
+                Positioned(
+                  bottom: 20,
+                  right: 20,
+                  child: FloatingActionButton(
+                    onPressed: () => _editProject(),
+                    backgroundColor: theme.colorScheme.primary,
+                    child: const Icon(Icons.edit, color: Colors.white),
+                  ),
                 ),
-              ],
 
-              if (contact != null && contact.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                _buildSectionTitle('Contact'),
-                const SizedBox(height: 8),
-                _buildContactButton(contact, theme),
-              ],
+                  if (!isOwner)
+                    ElevatedButton(
+                      onPressed: () async {
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user != null) {
+                          await FirebaseFirestore.instance
+                              .collection('projets')
+                              .doc(widget.projetId)
+                              .collection('candidatures')
+                              .doc(user.uid)
+                              .set({
+                                'email': user.email,
+                                'status': 'en attente',
+                                'submittedAt': FieldValue.serverTimestamp(),
+                              });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Candidature soumise')),
+                          );
+                        }
+                      },
+                      child: Text('Soumettre sa candidature'),
+                    ),
 
-              const SizedBox(height: 32),
+
             ],
-          ),
-        );
-
+          );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _editProject(),
-        backgroundColor: theme.colorScheme.primary,
-        child: const Icon(Icons.edit, color: Colors.white),
-      ),
+
     );
   }
 
@@ -183,6 +296,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
       ),
     );
   }
+  String _generateChatId(String userId1, String userId2) {
+      final sorted = [userId1, userId2]..sort();
+      return '${sorted[0]}_${sorted[1]}';
+    }
+
 
   Widget _buildImagePlaceholder(ThemeData theme) {
     return Container(
@@ -281,7 +399,6 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
   try {
     final querySnapshot = await FirebaseFirestore.instance
         .collection('projets')
-        .where('membres', arrayContains: user.email)
         .orderBy('createdAt', descending: true)
         .get();
 
@@ -292,7 +409,16 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
         break;
       }
     }
+    
+    final projetData = projetDoc?.data() as Map<String, dynamic> ;
+    final createdBy = projetData['proprietaire'] as String?;
 
+  if (createdBy != user.email) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Seul le propriétaire peut modifier ce projet')),
+      );
+      return;
+    }
     if (projetDoc == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Projet introuvable')),
@@ -300,15 +426,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
       return;
     }
 
-    final projetData = projetDoc.data() as Map<String, dynamic>;
-    final createdBy = projetData['createdBy'] as String?;
-
-    if (createdBy != user.email) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Seul le propriétaire peut modifier ce projet')),
-      );
-      return;
-    }
+    
 
     if (!mounted) return;
 

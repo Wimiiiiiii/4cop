@@ -71,10 +71,10 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
         'theme': _themeController.text.trim().isNotEmpty ? _themeController.text.trim() : 'Non spécifié',
         'pays': _paysController.text.trim().isNotEmpty ? _paysController.text.trim() : 'Non spécifié',
         'duree': _dureeController.text.trim(),
-        'contact': _contactController.text.trim(),
+        'contact': user.email,
         'imageUrl': imageUrl ?? '',
-        'owner': user.email, // ou user.uid
-        'members': [user.email], // le créateur est aussi membre
+        'proprietaire': user.uid, // ou user.uid
+        'membres': [user.email], // le créateur est aussi membre
         'createdAt': FieldValue.serverTimestamp(),
         
       });
@@ -217,14 +217,7 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
                     hintText: 'ex: 3 mois',
                   ),
                 ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: _buildTextField(
-                    controller: _contactController,
-                    label: 'Contact',
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                ),
+                
               ],
             ),
             SizedBox(height: 32),
