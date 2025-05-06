@@ -64,20 +64,28 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
             final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Utilisateur non connecté');
 
-      await FirebaseFirestore.instance.collection('projets').add({
-        'titre': _titreController.text.trim(),
-        'resume': _resumeController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'theme': _themeController.text.trim().isNotEmpty ? _themeController.text.trim() : 'Non spécifié',
-        'pays': _paysController.text.trim().isNotEmpty ? _paysController.text.trim() : 'Non spécifié',
-        'duree': _dureeController.text.trim(),
-        'contact': user.email,
-        'imageUrl': imageUrl ?? '',
-        'proprietaire': user.uid, // ou user.uid
-        'membres': [user.email], // le créateur est aussi membre
-        'createdAt': FieldValue.serverTimestamp(),
-        
+      final projetRef = await FirebaseFirestore.instance.collection('projets').add({
+          'titre': _titreController.text.trim(),
+          'resume': _resumeController.text.trim(),
+          'description': _descriptionController.text.trim(),
+          'theme': _themeController.text.trim().isNotEmpty ? _themeController.text.trim() : 'Non spécifié',
+          'pays': _paysController.text.trim().isNotEmpty ? _paysController.text.trim() : 'Non spécifié',
+          'duree': _dureeController.text.trim(),
+          'contact': user.email,
+          'imageUrl': imageUrl ?? '',
+          'proprietaire': user.uid,
+          'membres':[user.email,],
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Maintenant on ajoute le créateur dans la sous-collection membres
+      await projetRef.collection('membres').doc(user.uid).set({
+        'uid': user.uid,
+        'email': user.email,
+        'joinedAt': FieldValue.serverTimestamp(),
+        'role': 'propriétaire',
       });
+
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

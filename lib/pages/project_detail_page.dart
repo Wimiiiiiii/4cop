@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fourcoop/pages/EditProjetPage.dart';
+import 'package:fourcoop/pages/candidature_page.dart';
 import 'package:fourcoop/pages/chat_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -18,6 +19,7 @@ class ProjectDetailPage extends StatefulWidget {
 }
 
 class _ProjectDetailPageState extends State<ProjectDetailPage> {
+  bool hasSubmitted = false;
   late final DocumentReference projetRef;
   final DateFormat dateFormat = DateFormat('dd MMM yyyy', 'fr_FR');
 
@@ -25,6 +27,24 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
   void initState() {
     super.initState();
     projetRef = FirebaseFirestore.instance.collection('projets').doc(widget.projetId);
+    checkIfAlreadySubmitted();
+  }
+
+   Future<void> checkIfAlreadySubmitted() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance
+          .collection('projets')
+          .doc(widget.projetId)
+          .collection('candidatures')
+          .doc(user.uid)
+          .get();
+      if (doc.exists) {
+        setState(() {
+          hasSubmitted = true;
+        });
+      }
+    }
   }
 
   Future<void> _launchContact(String contactInfo) async {
@@ -40,6 +60,30 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
       );
     }
   }
+
+  Future<void> submitCandidature() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance
+          .collection('projets')
+          .doc(widget.projetId)
+          .collection('candidatures')
+          .doc(user.uid)
+          .set({
+        'email': user.email,
+        'status': 'en attente',
+        'submittedAt': FieldValue.serverTimestamp(),
+      });
+      setState(() {
+        hasSubmitted = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Candidature soumise')),
+      );
+    }
+  }
+
+  
 
   Future<void> _toggleFavorite(bool isFavorite) async {
     try {
@@ -372,6 +416,64 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                         ),
                       ],
 
+
+                      if(isOwner) ...[
+                        // Section Candidatures
+const SizedBox(height: 24),
+_buildSectionTitle('Candidatures'),
+const SizedBox(height: 12),
+Container(
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+    color: theme.colorScheme.surface,
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.05),
+        blurRadius: 8,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        "Consultez les candidatures reçues.",
+        style: GoogleFonts.inter(
+          fontSize: 15,
+          color: theme.colorScheme.onSurface.withOpacity(0.8),
+        ),
+      ),
+      const SizedBox(height: 16),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          icon: const Icon(Icons.assignment_ind, color: Colors.white),
+          label: const Text('Voir les candidatures', style: TextStyle(color: Colors.white)),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CandidaturesPage(projetId: widget.projetId),
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  ),
+),
+
+                      ],
+
                       if (!isOwner) ...[
                         const SizedBox(height: 24),
                         _buildSectionTitle('Actions'),
@@ -385,6 +487,7 @@ Expanded(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
+      backgroundColor:Theme.of(context).cardColor,
     ),
     onPressed: () async {
       final String ownerId = data['proprietaire'];
@@ -445,35 +548,22 @@ Expanded(
     label: const Text('Contacter'),
   ),
 ),
+
                             const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton(
+                                onPressed: hasSubmitted ? null : submitCandidature,
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
+                                  backgroundColor: hasSubmitted ? Colors.grey : Theme.of(context).cardColor,
                                 ),
-                                onPressed: () async {
-                                  final user = FirebaseAuth.instance.currentUser;
-                                  if (user != null) {
-                                    await FirebaseFirestore.instance
-                                        .collection('projets')
-                                        .doc(widget.projetId)
-                                        .collection('candidatures')
-                                        .doc(user.uid)
-                                        .set({
-                                          'email': user.email,
-                                          'status': 'en attente',
-                                          'submittedAt': FieldValue.serverTimestamp(),
-                                        });
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Candidature soumise')),
-                                    );
-                                  }
-                                },
-                                child: const Text('Postuler'),
+                                child: Text(hasSubmitted ? 'Déjà postulé' : 'Postuler'),
                               ),
+
+                            
                             ),
                           ],
                         ),
