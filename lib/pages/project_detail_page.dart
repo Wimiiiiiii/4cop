@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:fourcoop/pages/EditProjetPage.dart';
 import 'package:fourcoop/pages/candidature_page.dart';
 import 'package:fourcoop/pages/chat_page.dart';
+import 'package:fourcoop/pages/group_creation_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -22,6 +24,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
   bool hasSubmitted = false;
   late final DocumentReference projetRef;
   final DateFormat dateFormat = DateFormat('dd MMM yyyy', 'fr_FR');
+  bool _isMenuOpen = false;
 
   @override
   void initState() {
@@ -83,7 +86,16 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
     }
   }
 
-  
+    void _startNewGroup() {
+    final user = FirebaseAuth.instance.currentUser;
+    setState(() => _isMenuOpen = false);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GroupCreationPage(currentUserId: user!.uid,projetId: widget.projetId),
+      ),
+    );
+  }
 
   Future<void> _toggleFavorite(bool isFavorite) async {
     try {
@@ -574,17 +586,34 @@ Expanded(
                   ),
                 ),
 
-                if (isOwner)
-                  Positioned(
-                    bottom: 24,
-                    right: 24,
-                    child: FloatingActionButton(
-                      onPressed: () => _editProject(),
-                      backgroundColor: theme.colorScheme.primary,
-                      elevation: 4,
-                      child: const Icon(Icons.edit, color: Colors.white),
-                    ),
-                  ),
+if (isOwner)
+  Positioned(
+    bottom: 24,
+    right: 24,
+    child: SpeedDial(
+      icon: Icons.add,
+      activeIcon: Icons.close,
+      backgroundColor: theme.colorScheme.primary,
+      foregroundColor: Colors.white,
+      children: [
+        SpeedDialChild(
+          child: const Icon(Icons.edit),
+          backgroundColor: theme.colorScheme.secondary,
+          label: 'Modifier le projet',
+          labelStyle: GoogleFonts.inter(),
+          onTap: () => _editProject(),
+        ),
+        SpeedDialChild(
+          child: const Icon(Icons.group_add),
+          backgroundColor: theme.colorScheme.tertiary,
+          label: 'Créer un groupe',
+          labelStyle: GoogleFonts.inter(),
+          onTap: () => _startNewGroup(), // définie dans ton code déjà
+        ),
+      ],
+    ),
+  ),
+
               ],
             );
           },
