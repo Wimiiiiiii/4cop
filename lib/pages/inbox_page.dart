@@ -114,6 +114,7 @@ class _InboxPageState extends State<InboxPage> {
               stream: FirebaseFirestore.instance
                   .collection('chats')
                   .where('participants', arrayContains: currentUser.uid)
+                  .orderBy('timestamp', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -167,7 +168,6 @@ class _InboxPageState extends State<InboxPage> {
                             .collection('chats')
                             .doc(chatId)
                             .collection('messages')
-                            .orderBy('timestamp', descending: true)
                             .limit(1)
                             .snapshots(),
                         onTap: () {
@@ -221,7 +221,6 @@ class _InboxPageState extends State<InboxPage> {
                                 .collection('chats')
                                 .doc(chatId)
                                 .collection('messages')
-                                .orderBy('timestamp', descending: true)
                                 .limit(1)
                                 .snapshots(),
                             onTap: () {
@@ -310,7 +309,9 @@ class _InboxPageState extends State<InboxPage> {
     required Stream<QuerySnapshot> subtitleStream,
     required VoidCallback onTap,
     required VoidCallback onDelete,
-  }) {
+  })
+  
+  {
     final theme = Theme.of(context);
     bool hasUnread = false;
 
@@ -324,14 +325,14 @@ class _InboxPageState extends State<InboxPage> {
           subtitle = lastMessage['text'] ?? '';
           final senderId = lastMessage['senderId'];
 
-final lastSeenField = 'lastSeen_${currentUser.uid}';
-final lastSeenTimestamp = (FirebaseFirestore.instance.collection('chats').doc(chatId).get())
-    .then((doc) => doc.data()?[lastSeenField] as Timestamp?);
+      final lastSeenField = 'lastSeen_${currentUser.uid}';
+      final lastSeenTimestamp = (FirebaseFirestore.instance.collection('chats').doc(chatId).get())
+          .then((doc) => doc.data()?[lastSeenField] as Timestamp?);
 
-return FutureBuilder<Timestamp?>(
-  future: lastSeenTimestamp,
-  builder: (context, snapshot) {
-    bool hasUnread = false;
+      return FutureBuilder<Timestamp?>(
+        future: lastSeenTimestamp,
+        builder: (context, snapshot) {
+          bool hasUnread = false;
 
     if (snapshot.connectionState == ConnectionState.done) {
       final lastSeen = snapshot.data;

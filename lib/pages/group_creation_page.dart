@@ -25,11 +25,12 @@ void _createGroupChat() async {
     'participants': [widget.currentUserId, ...selectedUserIds],
     'isGroup': true,
     'createdAt': FieldValue.serverTimestamp(),
+    'timestamp': FieldValue.serverTimestamp(),
   });
 
   final groupId = newGroup.id;
 
-  // Aller vers la page de chat du groupe
+
   Navigator.push(
     context,
     MaterialPageRoute(

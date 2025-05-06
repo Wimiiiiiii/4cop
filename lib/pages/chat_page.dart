@@ -57,7 +57,7 @@ class _ChatPageState extends State<ChatPage> {
     if (message.isEmpty) return;
 
     final chatRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
-
+  
     try {
       final chatSnapshot = await chatRef.get();
       if (!chatSnapshot.exists && !widget.isGroup) {
@@ -73,6 +73,11 @@ class _ChatPageState extends State<ChatPage> {
         if (!widget.isGroup) 'receiverId': widget.otherUserId,
         'timestamp': FieldValue.serverTimestamp(),
       });
+
+      await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
 
       _messageController.clear();
       _scrollToBottom();

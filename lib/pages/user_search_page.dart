@@ -61,6 +61,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
       await chatRef.set({
         'participants': [currentUser.uid, uid],
         'createdAt': FieldValue.serverTimestamp(),
+        'timestamp':  FieldValue.serverTimestamp(),
       });
     }
 

@@ -419,6 +419,7 @@ Expanded(
                 'createdAt': FieldValue.serverTimestamp(),
                 'lastSeen_${currentUser.uid}': FieldValue.serverTimestamp(),
                 'lastSeen_$ownerId': FieldValue.serverTimestamp(),
+                'timestamp':  FieldValue.serverTimestamp(),
               });
         }
 
