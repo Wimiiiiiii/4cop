@@ -6,6 +6,7 @@ import 'package:fourcoop/pages/chat_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ProjectDetailPage extends StatefulWidget {
   final String projetId;
@@ -58,7 +59,25 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
       appBar: AppBar(
         title: Text(
           'Détails du projet',
-          style: GoogleFonts.interTight(fontWeight: FontWeight.bold),
+          style: GoogleFonts.interTight(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primary,
+                theme.colorScheme.error,
+                theme.colorScheme.tertiary,
+              ],
+              stops: [0, 0.5, 1],
+              begin: AlignmentDirectional(-1, -1),
+              end: AlignmentDirectional(1, 1),
+            ),
+          ),
         ),
         actions: [
           StreamBuilder<DocumentSnapshot>(
@@ -68,239 +87,420 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
               return IconButton(
                 icon: Icon(
                   isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorite ? Colors.red : null,
+                  color: isFavorite ? Colors.red : Colors.white,
                 ),
                 onPressed: () => _toggleFavorite(isFavorite),
               );
             },
           ),
           IconButton(
-            icon: const Icon(Icons.share),
+            icon: const Icon(Icons.share, color: Colors.white),
             onPressed: () => _shareProject(),
           ),
         ],
       ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: projetRef.snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              theme.colorScheme.background.withOpacity(0.3),
+              theme.colorScheme.background,
+            ],
+            stops: [0, 0.3],
+          ),
+        ),
+        child: StreamBuilder<DocumentSnapshot>(
+          stream: projetRef.snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return Center(
-              child: Text(
-                'Projet non trouvé',
-                style: GoogleFonts.inter(),
-              ),
-            );
-          }
-
-          final data = snapshot.data!.data() as Map<String, dynamic>;
-          final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
-          final imageUrl = data['imageUrl'] as String?;
-          final contact = data['contact'] as String?;
-          final currentUser = FirebaseAuth.instance.currentUser;
-          final isOwner = currentUser != null && data['proprietaire'] == currentUser.uid;
-
-          return Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return Center(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (imageUrl != null && imageUrl.isNotEmpty)
-                      _buildProjectImage(imageUrl, theme),
-                    if (imageUrl == null || imageUrl.isEmpty)
-                      _buildImagePlaceholder(theme),
-
-                    const SizedBox(height: 24),
-
-                    Text(
-                      data['titre'] ?? 'Titre non spécifié',
-                      style: GoogleFonts.interTight(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Icon(
+                      Icons.work_outline,
+                      size: 48,
+                      color: theme.colorScheme.onSurface.withOpacity(0.3),
                     ),
-                    const SizedBox(height: 8),
-
-                    _buildMetadataChips(data, createdAt, theme),
                     const SizedBox(height: 16),
-
-                    _buildSectionTitle('Résumé'),
-                    const SizedBox(height: 8),
                     Text(
-                      data['resume'] ?? 'Aucun résumé fourni',
-                      style: GoogleFonts.inter(fontSize: 15, height: 1.5),
-                    ),
-
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('Description'),
-                    const SizedBox(height: 8),
-                    Text(
-                      data['description'] ?? 'Aucune description disponible',
-                      style: GoogleFonts.inter(fontSize: 15, height: 1.5),
-                    ),
-
-                    if (data['duree'] != null) ...[
-                      const SizedBox(height: 24),
-                      _buildSectionTitle('Durée'),
-                      const SizedBox(height: 8),
-                      Text(
-                        data['duree'],
-                        style: GoogleFonts.inter(fontSize: 15),
+                      'Projet non trouvé',
+                      style: GoogleFonts.inter(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+              );
+            }
 
-                    if (contact != null && contact.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      _buildSectionTitle('Contact'),
-                      const SizedBox(height: 8),
-                      _buildContactButton(contact, theme),
-                    ],
+            final data = snapshot.data!.data() as Map<String, dynamic>;
+            final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+            final imageUrl = data['imageUrl'] as String?;
+            final contact = data['contact'] as String?;
+            final currentUser = FirebaseAuth.instance.currentUser;
+            final isOwner = currentUser != null && data['proprietaire'] == currentUser.uid;
 
-                    const SizedBox(height: 100), // pour laisser la place au bouton flottant
-                  
-                  if (!isOwner) ...[
-                    const SizedBox(height: 24),
-                    _buildSectionTitle('Actions'),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () async {
-                                final String ownerId = data['proprietaire'];
-                                print("Le owner est : $ownerId");
-                                final String userId = currentUser!.uid;
-                                final chatId = _generateChatId(userId, ownerId);
-
-                                // Vérifie si le chat existe déjà
-                                final chatDoc = await FirebaseFirestore.instance
-                                    .collection('chats')
-                                    .doc(chatId)
-                                    .get();
-
-                                if (!chatDoc.exists) {
-                                  // Création automatique du document chat avec participants
-                                  await FirebaseFirestore.instance
-                                      .collection('chats')
-                                      .doc(chatId)
-                                      .set({
-                                    'participants': [userId, ownerId],
-                                    'createdAt': FieldValue.serverTimestamp(),
-                                  });
-                                }
-
-                                // Navigation vers la page de discussion
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChatPage(
-                                      chatId: chatId,
-                                      otherUserId: ownerId,
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.chat),
-                              label: const Text('Contacter le porteur'),
+            return Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image du projet
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
-                          ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: imageUrl != null && imageUrl.isNotEmpty
+                              ? Image.network(
+                                  imageUrl,
+                                  width: double.infinity,
+                                  height: 220,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _buildImagePlaceholder(theme),
+                                )
+                              : _buildImagePlaceholder(theme),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              final user = FirebaseAuth.instance.currentUser;
-                              if (user != null) {
-                                await FirebaseFirestore.instance
-                                    .collection('projets')
-                                    .doc(widget.projetId)
-                                    .collection('candidatures')
-                                    .doc(user.uid)
-                                    .set({
-                                      'email': user.email,
-                                      'status': 'en attente',
-                                      'submittedAt': FieldValue.serverTimestamp(),
-                                    });
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Candidature soumise')),
-                                );
-                              }
-                            },
-                            child: const Text('Soumettre sa candidature'),
+                      // Titre et métadonnées
+                      Text(
+                        data['titre'] ?? 'Titre non spécifié',
+                        style: GoogleFonts.interTight(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if ((data['theme'] as String?)?.isNotEmpty ?? false)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: theme.colorScheme.primary.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Text(
+                                data['theme'] as String,
+                                style: GoogleFonts.inter(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          if (data['pays'] != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.secondary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: theme.colorScheme.secondary.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Text(
+                                data['pays'],
+                                style: GoogleFonts.inter(
+                                  color: theme.colorScheme.secondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          if (createdAt != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceVariant,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                dateFormat.format(createdAt),
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Résumé
+                      _buildSectionTitle('Résumé'),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          data['resume'] ?? 'Aucun résumé fourni',
+                          style: GoogleFonts.inter(
+                            fontSize: 15, 
+                            height: 1.5,
+                            color: theme.colorScheme.onSurface.withOpacity(0.8),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Description
+                      _buildSectionTitle('Description'),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          data['description'] ?? 'Aucune description disponible',
+                          style: GoogleFonts.inter(
+                            fontSize: 15, 
+                            height: 1.5,
+                            color: theme.colorScheme.onSurface.withOpacity(0.8),
+                          ),
+                        ),
+                      ),
+
+                      if (data['duree'] != null) ...[
+                        const SizedBox(height: 24),
+                        _buildSectionTitle('Durée'),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            data['duree'],
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              color: theme.colorScheme.onSurface.withOpacity(0.8),
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                  ],
-                ),
-              ),
 
-              if (isOwner)
-                Positioned(
-                  bottom: 20,
-                  right: 20,
-                  child: FloatingActionButton(
-                    onPressed: () => _editProject(),
-                    backgroundColor: theme.colorScheme.primary,
-                    child: const Icon(Icons.edit, color: Colors.white),
+                      if (contact != null && contact.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildSectionTitle('Contact'),
+                        const SizedBox(height: 12),
+                        InkWell(
+                          onTap: () => _launchContact(contact),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.email, color: theme.colorScheme.primary),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    contact,
+                                    style: GoogleFonts.inter(
+                                      color: theme.colorScheme.primary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: theme.colorScheme.onSurface.withOpacity(0.3),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      if (!isOwner) ...[
+                        const SizedBox(height: 24),
+                        _buildSectionTitle('Actions'),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+Expanded(
+  child: ElevatedButton.icon(
+    style: ElevatedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+    onPressed: () async {
+      final String ownerId = data['proprietaire'];
+      final String userId = currentUser!.uid;
+      
+      // Debug
+      print("OwnerID: $ownerId | UserID: $userId");
+      
+      if (ownerId == userId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Vous ne pouvez pas vous envoyer un message à vous-même")),
+        );
+        return;
+      }
+
+      final chatId = _generateChatId(userId, ownerId);
+      print("Generated ChatID: $chatId");
+
+      try {
+        final chatDoc = await FirebaseFirestore.instance
+            .collection('chats')
+            .doc(chatId)
+            .get();
+
+        if (!chatDoc.exists) {
+          print("Création d'un nouveau chat...");
+          await FirebaseFirestore.instance
+              .collection('chats')
+              .doc(chatId)
+              .set({
+                'participants': [userId, ownerId],
+                'createdAt': FieldValue.serverTimestamp(),
+                'lastSeen_${currentUser.uid}': FieldValue.serverTimestamp(),
+                'lastSeen_$ownerId': FieldValue.serverTimestamp(),
+              });
+        }
+
+        if (!mounted) return;
+        
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatPage(
+              chatId: chatId,
+              otherUserId: ownerId,
+            ),
+          ),
+        );
+      } catch (e) {
+        print("Erreur chat: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur: ${e.toString()}")),
+        );
+      }
+    },
+    icon: const Icon(Icons.chat),
+    label: const Text('Contacter'),
+  ),
+),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () async {
+                                  final user = FirebaseAuth.instance.currentUser;
+                                  if (user != null) {
+                                    await FirebaseFirestore.instance
+                                        .collection('projets')
+                                        .doc(widget.projetId)
+                                        .collection('candidatures')
+                                        .doc(user.uid)
+                                        .set({
+                                          'email': user.email,
+                                          'status': 'en attente',
+                                          'submittedAt': FieldValue.serverTimestamp(),
+                                        });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Candidature soumise')),
+                                    );
+                                  }
+                                },
+                                child: const Text('Postuler'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      const SizedBox(height: 100),
+                    ],
                   ),
                 ),
 
-                  if (!isOwner)
-                    ElevatedButton(
-                      onPressed: () async {
-                        final user = FirebaseAuth.instance.currentUser;
-                        if (user != null) {
-                          await FirebaseFirestore.instance
-                              .collection('projets')
-                              .doc(widget.projetId)
-                              .collection('candidatures')
-                              .doc(user.uid)
-                              .set({
-                                'email': user.email,
-                                'status': 'en attente',
-                                'submittedAt': FieldValue.serverTimestamp(),
-                              });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Candidature soumise')),
-                          );
-                        }
-                      },
-                      child: Text('Soumettre sa candidature'),
+                if (isOwner)
+                  Positioned(
+                    bottom: 24,
+                    right: 24,
+                    child: FloatingActionButton(
+                      onPressed: () => _editProject(),
+                      backgroundColor: theme.colorScheme.primary,
+                      elevation: 4,
+                      child: const Icon(Icons.edit, color: Colors.white),
                     ),
-
-
-            ],
-          );
-        },
-      ),
-
-    );
-  }
-
-  Widget _buildProjectImage(String imageUrl, ThemeData theme) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        imageUrl,
-        width: double.infinity,
-        height: 220,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _buildImagePlaceholder(theme),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
-  String _generateChatId(String userId1, String userId2) {
-      final sorted = [userId1, userId2]..sort();
-      return '${sorted[0]}_${sorted[1]}';
-    }
-
 
   Widget _buildImagePlaceholder(ThemeData theme) {
     return Container(
@@ -308,7 +508,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
       height: 220,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Center(
         child: Icon(
@@ -320,137 +520,117 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
     );
   }
 
-  Widget _buildMetadataChips(Map<String, dynamic> data, DateTime? createdAt, ThemeData theme) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        if ((data['theme'] as String?)?.isNotEmpty ?? false)
-          Chip(
-            label: Text(data['theme'] as String),
-            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-          ),
-        if (data['pays'] != null)
-          Chip(
-            label: Text(data['pays']),
-            backgroundColor: theme.colorScheme.secondary.withOpacity(0.1),
-          ),
-        if (createdAt != null)
-          Chip(
-            label: Text(dateFormat.format(createdAt)),
-            backgroundColor: theme.colorScheme.surfaceVariant,
-          ),
-      ],
-    );
-  }
-
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
       style: GoogleFonts.interTight(
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: FontWeight.bold,
       ),
     );
   }
 
-  Widget _buildContactButton(String contact, ThemeData theme) {
-    return InkWell(
-      onTap: () => _launchContact(contact),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.email, color: theme.colorScheme.primary),
-            const SizedBox(width: 12),
-            Text(
-              contact,
-              style: GoogleFonts.inter(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  String _generateChatId(String userId1, String userId2) {
+    final sorted = [userId1, userId2]..sort();
+    return '${sorted[0]}_${sorted[1]}';
   }
 
   Future<void> _shareProject() async {
-    // Implémentez le partage selon vos besoins
-    // Ex: utiliser le package share_plus
+    try {
+      final projetDoc = await FirebaseFirestore.instance
+          .collection('projets')
+          .doc(widget.projetId)
+          .get();
+
+      if (!projetDoc.exists) return;
+
+      final data = projetDoc.data() as Map<String, dynamic>;
+      final titre = data['titre'] ?? 'Un projet FourCoop';
+      final resume = data['resume'] ?? 'Découvrez ce projet intéressant';
+      final theme = data['theme'] ?? '';
+      final pays = data['pays'] ?? '';
+
+      final message = """
+  🚀 $titre
+
+  ${theme.isNotEmpty ? '📌 Thème: $theme\n' : ''}${pays.isNotEmpty ? '🌍 Pays: $pays\n' : ''}
+  $resume
+
+  Téléchargez l'application FourCoop pour en savoir plus !
+  """;
+
+      await Share.share(
+        message,
+        subject: 'Découvrez ce projet FourCoop',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors du partage: $e')),
+      );
+    }
   }
 
- Future<void> _editProject() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Vous devez être connecté pour modifier ce projet')),
-    );
-    return;
-  }
+  Future<void> _editProject() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vous devez être connecté pour modifier ce projet')),
+      );
+      return;
+    }
 
-  try {
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('projets')
-        .orderBy('createdAt', descending: true)
-        .get();
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('projets')
+          .orderBy('createdAt', descending: true)
+          .get();
 
-    QueryDocumentSnapshot? projetDoc;
-    for (final doc in querySnapshot.docs) {
-      if (doc.id == widget.projetId) {
-        projetDoc = doc;
-        break;
+      QueryDocumentSnapshot? projetDoc;
+      for (final doc in querySnapshot.docs) {
+        if (doc.id == widget.projetId) {
+          projetDoc = doc;
+          break;
+        }
       }
-    }
-    
-    final projetData = projetDoc?.data() as Map<String, dynamic> ;
-    final createdBy = projetData['proprietaire'] as String?;
+      
+      final projetData = projetDoc?.data() as Map<String, dynamic>;
+      final createdBy = projetData['proprietaire'] as String?;
 
-  if (createdBy != user.email) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Seul le propriétaire peut modifier ce projet')),
-      );
-      return;
-    }
-    if (projetDoc == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Projet introuvable')),
-      );
-      return;
-    }
+      if (createdBy != user.uid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Seul le propriétaire peut modifier ce projet')),
+        );
+        return;
+      }
+      if (projetDoc == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Projet introuvable')),
+        );
+        return;
+      }
 
-    
+      if (!mounted) return;
 
-    if (!mounted) return;
-
-    final updatedProject = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EditProjectPage(
-          projetId: widget.projetId,
-          initialData: projetData,
+      final updatedProject = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => EditProjectPage(
+            projetId: widget.projetId,
+            initialData: projetData,
+          ),
         ),
-      ),
-    );
+      );
 
-    if (updatedProject != null) {
+      if (updatedProject != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Projet mis à jour avec succès')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de la modification : $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Projet mis à jour avec succès')),
+        const SnackBar(content: Text("Une erreur s'est produite lors de l'édition.")),
       );
     }
-  } catch (e) {
-    debugPrint('Erreur lors de la modification : $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Une erreur s'est produite lors de l'édition.")),
-    );
   }
-}
-
 }
