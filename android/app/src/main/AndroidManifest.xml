@@ -2,6 +2,7 @@
     package = "com.domain.fourcoop"
     <application
         android:label="fourcoop"
+        android:enableOnBackInvokedCallback="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         android:enableOnBackInvokedCallback="true"
