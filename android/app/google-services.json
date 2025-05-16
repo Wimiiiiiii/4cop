@@ -12,7 +12,12 @@
           "package_name": "com.domain.fourcoop"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "133507150925-fd6jo2a3c8ctk9ki069b3otdn2ubbmhp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDuEHtzl5W-k4fYMX1XDvSPoEAUO5cuHmw"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "133507150925-fd6jo2a3c8ctk9ki069b3otdn2ubbmhp.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "133507150925-ib6pnoogs984nk3ej2vtoagvh5a8shpp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.domain.fourcoop"
+              }
+            }
+          ]
         }
       }
     }
