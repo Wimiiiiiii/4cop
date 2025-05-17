@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fourcoop/pages/project_detail_page.dart';
 import 'package:fourcoop/pages/user_profile_page.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class GroupDetailsPage extends StatefulWidget {
   final String groupId;
@@ -32,22 +33,23 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
         .then((snapshot) => snapshot.data() ?? {});
 
     _groupData.then((group) {
-      // Charger les données des membres
       if (group['participants'] != null && group['participants'] is List) {
-        _membersData = Future.wait((group['participants'] as List).map((userId) {
-          return FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .get()
-              .then((snapshot) {
-                var data = snapshot.data() ?? {};
-                data['id'] = userId; // Ajouter l'ID à la donnée utilisateur
-                return data;
-              });
-        }));
+_membersData = Future.wait(
+  (group['participants'] as List).map((userId) {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get()
+        .then((snapshot) {
+          var data = snapshot.data() ?? {};
+          data['id'] = userId;
+          return data;
+        });
+  }).toList(), // 👈 ici tu fermes le .map et convertis en List
+); // 👈 ici tu fermes le Future.wait
+
       }
 
-      // Charger les données du projet
       if (group['projetId'] != null) {
         _projectData = FirebaseFirestore.instance
             .collection('projets')
@@ -71,16 +73,36 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
         title: FutureBuilder<Map<String, dynamic>>(
           future: _groupData,
           builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              return Text(snapshot.data!['name'] ?? 'Détails du groupe');
-            }
-            return const Text('Détails du groupe');
+            return Text(
+              snapshot.hasData ? snapshot.data!['name'] ?? 'Détails du groupe' : 'Détails du groupe',
+              style: GoogleFonts.interTight(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            );
           },
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primary,
+                theme.colorScheme.error,
+                theme.colorScheme.tertiary,
+              ],
+              stops: [0, 0.5, 1],
+              begin: AlignmentDirectional(-1, -1),
+              end: AlignmentDirectional(1, 1),
+            ),
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -105,7 +127,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
       future: _groupData,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -118,6 +140,10 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
             : null;
 
         return Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -125,20 +151,48 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
               children: [
                 Text(
                   group['name'] ?? 'Groupe sans nom',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: GoogleFonts.interTight(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      group['isGroup'] == true ? Icons.group : Icons.person,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      group['isGroup'] == true ? 'Groupe' : 'Conversation privée',
+                      style: GoogleFonts.interTight(
+                        fontSize: 16,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
                 ),
                 if (createdAt != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Créé le: ${createdAt.day}/${createdAt.month}/${createdAt.year}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Créé le ${createdAt.day}/${createdAt.month}/${createdAt.year}',
+                        style: GoogleFonts.interTight(
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      ),),
+                    ],
                   ),
                 ],
-                const SizedBox(height: 8),
-                Text(
-                  group['isGroup'] == true ? 'Groupe' : 'Conversation privée',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
               ],
             ),
           ),
@@ -152,7 +206,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
       future: _membersData,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -162,6 +216,10 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
         final members = snapshot.data!;
 
         return Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -169,20 +227,59 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
               children: [
                 Text(
                   'Membres (${members.length})',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  style: GoogleFonts.interTight(
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 ...members.map((member) {
                   return InkWell(
                     onTap: () => _navigateToUserProfile(context, member),
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.person),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      title: Text(member['nom'] ?? 'Utilisateur sans nom'),
-                      subtitle: Text(member['email'] ?? ''),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                            child: Icon(
+                              Icons.person,
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  member['nom'] ?? 'Utilisateur sans nom',
+                                  style: GoogleFonts.interTight(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  member['email'] ?? '',
+                                  style: GoogleFonts.interTight(
+                                    fontSize: 14,
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }).toList(),
@@ -195,71 +292,115 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
   }
 
   Widget _buildProjectSection() {
-  return FutureBuilder<Map<String, dynamic>>(
-    future: _groupData,
-    builder: (context, groupSnapshot) {
-      if (groupSnapshot.connectionState == ConnectionState.waiting) {
-        return const CircularProgressIndicator();
-      }
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _groupData,
+      builder: (context, groupSnapshot) {
+        if (groupSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-      final groupData = groupSnapshot.data ?? {};
-      final projectId = groupData['projetId'] as String?;
+        final groupData = groupSnapshot.data ?? {};
+        final projectId = groupData['projetId'] as String?;
 
-      if (projectId == null || projectId.isEmpty) {
-        return const SizedBox(); // Pas de projet lié
-      }
+        if (projectId == null || projectId.isEmpty) {
+          return const SizedBox();
+        }
 
-      return FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance
-            .collection('projets')
-            .doc(projectId)
-            .get(),
-        builder: (context, projectSnapshot) {
-          if (projectSnapshot.connectionState == ConnectionState.waiting) {
-            return const CircularProgressIndicator();
-          }
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('projets')
+              .doc(projectId)
+              .get(),
+          builder: (context, projectSnapshot) {
+            if (projectSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (!projectSnapshot.hasData || !projectSnapshot.data!.exists) {
-            return const SizedBox(); // Le projet n'existe pas
-          }
+            if (!projectSnapshot.hasData || !projectSnapshot.data!.exists) {
+              return const SizedBox();
+            }
 
-          final project = projectSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+            final project = projectSnapshot.data!.data() as Map<String, dynamic>? ?? {};
 
-          return InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProjectDetailPage(projetId: projectId),
+            return InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProjectDetailPage(projetId: projectId),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Card(
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-              );
-            },
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Projet lié',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Projet lié',
+                        style: GoogleFonts.interTight(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    ListTile(
-                      leading: const Icon(Icons.work),
-                      title: Text(project['titre'] ?? 'Projet sans nom'),
-                      subtitle: Text(project['description'] ?? ''),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.work,
+                              color: Theme.of(context).colorScheme.onTertiaryContainer,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  project['titre'] ?? 'Projet sans nom',
+                                  style: GoogleFonts.interTight(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  project['description'] ?? '',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.interTight(
+                                    fontSize: 14,
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 }
