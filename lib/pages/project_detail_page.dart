@@ -6,6 +6,7 @@ import 'package:fourcoop/pages/EditProjetPage.dart';
 import 'package:fourcoop/pages/candidature_page.dart';
 import 'package:fourcoop/pages/chat_page.dart';
 import 'package:fourcoop/pages/group_creation_page.dart';
+import 'package:fourcoop/pages/user_profile_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -50,19 +51,36 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
     }
   }
 
-  Future<void> _launchContact(String contactInfo) async {
-    final Uri emailUri = Uri(
-      scheme: 'mailto',
-      path: contactInfo,
-    );
-    if (await canLaunchUrl(emailUri)) {
-      await launchUrl(emailUri);
+  Future<void> _goToUserProfile(String email) async {
+  try {
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
+
+    if (querySnapshot.docs.isNotEmpty) {
+      final userId = querySnapshot.docs.first.id;
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UserProfilePage(userId: userId),
+        ),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Impossible d\'ouvrir $contactInfo')),
+        SnackBar(content: Text('Utilisateur non trouvé pour cet e-mail')),
       );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erreur : ${e.toString()}')),
+    );
   }
+}
+
 
   Future<void> submitCandidature() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -390,7 +408,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                         _buildSectionTitle('Contact'),
                         const SizedBox(height: 12),
                         InkWell(
-                          onTap: () => _launchContact(contact),
+                          onTap: () => _goToUserProfile(contact),
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
                             padding: const EdgeInsets.all(16),
