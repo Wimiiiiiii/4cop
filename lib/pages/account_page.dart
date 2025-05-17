@@ -258,7 +258,7 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   Future<void> _addNewCountry() async {
-    final newCountry = _newCountryController.text.trim();
+    final newCountry = _newCountryController.text.trim().toUpperCase();
     if (newCountry.isEmpty) return;
 
     try {
@@ -283,7 +283,7 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
   Future<void> _addNewSkill() async {
-  final newSkill = _newSkillController.text.trim();
+  final newSkill = _newSkillController.text.trim().toUpperCase();
   if (newSkill.isEmpty) return;
 
   try {
@@ -311,7 +311,7 @@ class _AccountPageState extends State<AccountPage> {
 
 
   Future<void> _addNewSchool() async {
-    final newSchool = _newSchoolController.text.trim();
+    final newSchool = _newSchoolController.text.trim().toUpperCase();
     if (newSchool.isEmpty) return;
 
     try {
@@ -403,7 +403,7 @@ class _AccountPageState extends State<AccountPage> {
       children: [
         DropdownButtonFormField<String>(
           value:  _countries.contains(_selectedCountry) ? _selectedCountry : null,
-          items: _countries.toSet().toList()
+          items: (_countries.toSet().toList()..sort((a, b) => a.compareTo(b)) )
           .map((String country) {
             return DropdownMenuItem<String>(
               value: country,
@@ -452,7 +452,7 @@ class _AccountPageState extends State<AccountPage> {
       children: [
         DropdownButtonFormField<String>(
           value: _schools.contains(_selectedSchool) ? _selectedSchool : null,
-          items: _schools.toSet().toList()
+          items: (_schools.toSet().toList()..sort((a, b) => a.compareTo(b)))
           .map((String school) {
             return DropdownMenuItem<String>(
               value: school,
@@ -498,119 +498,330 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldMessengerKey,
+ @override
+Widget build(BuildContext context) {
+  return ScaffoldMessenger(
+    key: _scaffoldMessengerKey,
+    child: Scaffold(
       appBar: AppBar(
-        title: const Text("Mon Profil"),
+        title: const Text('Mon Profil', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _isSaving ? null : _saveChanges,
+            tooltip: 'Enregistrer',
+          ),
+        ],
       ),
       body: _isLoading
-          ? _buildLoadingIndicator()
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Form(
                 key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Center(child: _buildProfileImage()),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: "Nom",
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) => value?.trim().isEmpty ?? true
-                          ? "Veuillez entrer votre nom"
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _prenomController,
-                      decoration: const InputDecoration(
-                        labelText: "Prénom",
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildCountryField(),
-                    const SizedBox(height: 16),
-                    _buildSchoolField(),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _domaineController,
-                      decoration: const InputDecoration(
-                        labelText: "Domaine d'étude",
-                        prefixIcon: Icon(Icons.work_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text("Compétences:", style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    _buildSkillsChips(),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
-                        labelText: "Ajouter une compétence",
-                        prefixIcon: Icon(Icons.add_circle_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _availableSkills
-                          .where((skill) => !_skills.contains(skill))
-                          .map((skill) => DropdownMenuItem(
-                                value: skill,
-                                child: Text(skill),
-                              ))
-                          .toList(),
-                      onChanged: (skill) {
-                        if (skill != null) {
-                          setState(() => _skills.add(skill));
-                        }
-                      },
+                    // Section Photo de profil
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Theme.of(context).primaryColor,
+                              width: 3,
+                            ),
+                          ),
+                          child: ClipOval(
+                            child: _imageFile != null
+                                ? Image.file(_imageFile!, fit: BoxFit.cover)
+                                : (_photoUrl != null
+                                    ? Image.network(_photoUrl!, fit: BoxFit.cover)
+                                    : Icon(Icons.person, size: 60, color: Colors.grey[400])),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 24),
+
+                    // Section Informations personnelles
                     Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.folder_special, color: Colors.blue),
-                        title: const Text("Projets"),
-                        subtitle: Text("$_projectCount projet${_projectCount != 1 ? 's' : ''}"),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          // Navigation vers les projets
-                        },
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: _isSaving ? null : _saveChanges,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Informations Personnelles',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _nameController,
+                              decoration: InputDecoration(
+                                labelText: 'Nom',
+                                prefixIcon: const Icon(Icons.person_outline),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              validator: (value) => value!.isEmpty ? 'Champ requis' : null,
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _prenomController,
+                              decoration: InputDecoration(
+                                labelText: 'Prénom',
+                                prefixIcon: const Icon(Icons.person_outline),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              validator: (value) => value!.isEmpty ? 'Champ requis' : null,
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _domaineController,
+                              decoration: InputDecoration(
+                                labelText: 'Domaine',
+                                prefixIcon: const Icon(Icons.work_outline),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text("SAUVEGARDER LES MODIFICATIONS"),
                     ),
+
+                    // Section Localisation et École
+                    Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Localisation et Formation',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildCountryField(),
+                            const SizedBox(height: 16),
+                            _buildSchoolField(),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Section Compétences
+                    Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Compétences',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            if (_skills.isNotEmpty) ...[
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: _skills.map((skill) => Chip(
+                                  label: Text(skill),
+                                  deleteIcon: const Icon(Icons.close, size: 16),
+                                  onDeleted: () => setState(() => _skills.remove(skill)),
+                                  backgroundColor: Colors.blue[50],
+                                  labelStyle: const TextStyle(color: Colors.blue),
+                                )).toList(),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    hint: const Text('Sélectionnez une compétence'),
+                                    items: (_availableSkills..sort((a, b) => a.compareTo(b)))
+                                    
+                                        .map((e) => DropdownMenuItem(
+                                              value: e,
+                                              child: Text(e),
+                                            ))
+                                        .toList(),
+                                    onChanged: (value) {
+                                      if (value != null && !_skills.contains(value)) {
+                                        setState(() => _skills.add(value));
+                                      }
+                                    },
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _newSkillController,
+                                    decoration: InputDecoration(
+                                      labelText: 'Ajouter une nouvelle compétence',
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle),
+                                  color: Theme.of(context).primaryColor,
+                                  onPressed: _addNewSkill,
+                                  tooltip: 'Ajouter cette compétence',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Section Statistiques
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Statistiques',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _buildStatisticItem(Icons.assignment, 'Projets', _projectCount.toString()),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Bouton de sauvegarde
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _saveChanges,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          backgroundColor: Theme.of(context).primaryColor,
+                        ),
+                        child: _isSaving
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
+                                'SAUVEGARDER LES MODIFICATIONS',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color.fromARGB(255, 245, 245, 242),
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
-    );
-  }
+    ),
+  );
+}
+
+Widget _buildStatisticItem(IconData icon, String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Column(
+      children: [
+        Icon(icon, size: 30, color: Colors.deepPurple),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 }
