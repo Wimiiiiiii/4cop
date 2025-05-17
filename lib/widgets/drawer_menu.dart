@@ -6,7 +6,7 @@ import 'package:fourcoop/pages/account_page.dart';
 import 'package:fourcoop/pages/home_page.dart';
 import 'package:fourcoop/pages/inbox_page.dart';
 import 'package:fourcoop/pages/mes_projets.dart';
-import 'package:fourcoop/pages/tasks_page.dart';
+import 'package:fourcoop/pages/shared_tasks_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class DrawerMenu extends StatelessWidget {
@@ -32,18 +32,12 @@ class DrawerMenu extends StatelessWidget {
 
   Future<DocumentSnapshot> _getUserData() async {
     if (user == null) throw Exception('Utilisateur non connecté');
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(user!.uid)
-        .get();
+    return FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
   }
 
   void _navigateTo(BuildContext context, Widget page) {
     Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => page),
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
   @override
@@ -83,12 +77,18 @@ class DrawerMenu extends StatelessWidget {
               child: FutureBuilder<DocumentSnapshot>(
                 future: _getUserData(),
                 builder: (context, snapshot) {
-                  final isLoading = snapshot.connectionState == ConnectionState.waiting;
+                  final isLoading =
+                      snapshot.connectionState == ConnectionState.waiting;
                   final hasError = snapshot.hasError;
-                  final userData = snapshot.data?.data() as Map<String, dynamic>?;
+                  final userData =
+                      snapshot.data?.data() as Map<String, dynamic>?;
 
                   return Padding(
-                    padding: const EdgeInsets.only(left: 24, bottom: 24, right: 24),
+                    padding: const EdgeInsets.only(
+                      left: 24,
+                      bottom: 24,
+                      right: 24,
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,22 +104,28 @@ class DrawerMenu extends StatelessWidget {
                                   color: Colors.white,
                                   width: 2,
                                 ),
-                                image: userData?['photo_url'] != null
-                                    ? DecorationImage(
-                                        image: NetworkImage(userData!['photo_url']!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : const DecorationImage(
-                                        image: AssetImage('assets/images/4Cop.png'),
-                                      ),
+                                image:
+                                    userData?['photo_url'] != null
+                                        ? DecorationImage(
+                                          image: NetworkImage(
+                                            userData!['photo_url']!,
+                                          ),
+                                          fit: BoxFit.cover,
+                                        )
+                                        : const DecorationImage(
+                                          image: AssetImage(
+                                            'assets/images/4Cop.png',
+                                          ),
+                                        ),
                               ),
-                              child: userData?['photo_url'] == null
-                                  ? Icon(
-                                      Icons.person,
-                                      size: 32,
-                                      color: Colors.white,
-                                    )
-                                  : null,
+                              child:
+                                  userData?['photo_url'] == null
+                                      ? Icon(
+                                        Icons.person,
+                                        size: 32,
+                                        color: Colors.white,
+                                      )
+                                      : null,
                             ),
                             const SizedBox(width: 16),
                             Expanded(
@@ -130,8 +136,9 @@ class DrawerMenu extends StatelessWidget {
                                     isLoading
                                         ? 'Chargement...'
                                         : hasError
-                                            ? 'Erreur de chargement'
-                                            : '${userData?['prenom'] ?? ''} ${userData?['nom'] ?? ''}'.trim(),
+                                        ? 'Erreur de chargement'
+                                        : '${userData?['prenom'] ?? ''} ${userData?['nom'] ?? ''}'
+                                            .trim(),
                                     style: GoogleFonts.interTight(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -161,7 +168,7 @@ class DrawerMenu extends StatelessWidget {
                 },
               ),
             ),
-            
+
             // Menu items
             Expanded(
               child: ListView(
@@ -176,8 +183,26 @@ class DrawerMenu extends StatelessWidget {
                   _buildDrawerItem(
                     context,
                     icon: Icons.assignment_rounded,
-                    title: 'Tâches & Diagrammes',
-                    page: TasksPage(),
+                    title: 'Tâches partagées',
+                    page: MesProjets(
+                      isTaskSelectionMode: true,
+                      showAppBar: true,
+                      showDrawer: false,
+                      showFAB: false,
+                      onProjectSelected: (projectId, projectName) {
+                        Navigator.pop(context); // Ferme le drawer
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => SharedTasksPage(
+                                  projectId: projectId,
+                                  projectName: projectName,
+                                ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   _buildDrawerItem(
                     context,
@@ -207,7 +232,7 @@ class DrawerMenu extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Bouton de déconnexion
             Padding(
               padding: const EdgeInsets.all(24.0),
@@ -241,56 +266,51 @@ class DrawerMenu extends StatelessWidget {
                 ),
               ),
             ),
-            ],
-          ),
+          ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    Widget _buildDrawerItem(
-      BuildContext context, {
-      required IconData icon,
-      required String title,
-      required Widget page,
-    }) {
-      final theme = Theme.of(context);
+  Widget _buildDrawerItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Widget page,
+  }) {
+    final theme = Theme.of(context);
 
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.transparent,
-        ),
-        child: ListTile(
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          title: Text(
-            title,
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w500,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          trailing: Icon(
-            Icons.chevron_right,
-            color: theme.colorScheme.onSurface.withOpacity(0.5),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-          onTap: () => _navigateTo(context, page),
-          shape: RoundedRectangleBorder(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.transparent,
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
+          child: Icon(icon, color: theme.colorScheme.primary),
         ),
-      );
-    }
+        title: Text(
+          title,
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w500,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: theme.colorScheme.onSurface.withOpacity(0.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+        onTap: () => _navigateTo(context, page),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
+}
