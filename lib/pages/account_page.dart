@@ -260,28 +260,233 @@ class _AccountPageState extends State<AccountPage> {
   Future<void> _addNewCountry() async {
     final newCountry = _newCountryController.text.trim().toUpperCase();
     if (newCountry.isEmpty) return;
+    final List<String> allCountries = [
+  'AFGHANISTAN',
+  'AFRIQUE DU SUD',
+  'ALBANIE',
+  'ALGERIE',
+  'ALLEMAGNE',
+  'ANDORRE',
+  'ANGOLA',
+  'ANTIGUA-ET-BARBUDA',
+  'ARABIE SAOUDITE',
+  'ARGENTINE',
+  'ARMENIE',
+  'AUSTRALIE',
+  'AUTRICHE',
+  'AZERBAIDJAN',
+  'BAHAMAS',
+  'BAHREIN',
+  'BANGLADESH',
+  'BARBADE',
+  'BELARUS',
+  'BELGIQUE',
+  'BELIZE',
+  'BENIN',
+  'BHOUTAN',
+  'BIRMANIE',
+  'BOLIVIE',
+  'BOSNIE-HERZEGOVINE',
+  'BOTSWANA',
+  'BRESIL',
+  'BRUNEI',
+  'BULGARIE',
+  'BURKINA FASO',
+  'BURUNDI',
+  'CAMBODGE',
+  'CAMEROUN',
+  'CANADA',
+  'CAP-VERT',
+  'CENTRAFRICAINE',
+  'CHILI',
+  'CHINE',
+  'CHYPRE',
+  'COLOMBIE',
+  'COMORES',
+  'CONGO',
+  'COREE DU NORD',
+  'COREE DU SUD',
+  'COSTA RICA',
+  'COTE D\'IVOIRE',
+  'CROATIE',
+  'CUBA',
+  'DANEMARK',
+  'DJIBOUTI',
+  'DOMINICAINE',
+  'DOMINIQUE',
+  'EGYPTE',
+  'EMIRATS ARABES UNIS',
+  'EQUATEUR',
+  'ERYTHREE',
+  'ESPAGNE',
+  'ESTONIE',
+  'ESWATINI',
+  'ETATS-UNIS',
+  'ETHIOPIE',
+  'FIDJI',
+  'FINLANDE',
+  'FRANCE',
+  'GABON',
+  'GAMBIE',
+  'GEORGIE',
+  'GHANA',
+  'GRECE',
+  'GRENADE',
+  'GUATEMALA',
+  'GUINEE',
+  'GUINEE EQUATORIALE',
+  'GUINEE-BISSAU',
+  'GUYANA',
+  'HAITI',
+  'HONDURAS',
+  'HONGRIE',
+  'INDE',
+  'INDONESIE',
+  'IRAK',
+  'IRAN',
+  'IRLANDE',
+  'ISLANDE',
+  'ISRAEL',
+  'ITALIE',
+  'JAMAÏQUE',
+  'JAPON',
+  'JORDANIE',
+  'KAZAKHSTAN',
+  'KENYA',
+  'KIRGHIZISTAN',
+  'KIRIBATI',
+  'KOSOVO',
+  'KOWEIT',
+  'LAOS',
+  'LESOTHO',
+  'LETTONIE',
+  'LIBAN',
+  'LIBERIA',
+  'LIBYE',
+  'LIECHTENSTEIN',
+  'LITUANIE',
+  'LUXEMBOURG',
+  'MACEDOINE',
+  'MADAGASCAR',
+  'MALAISIE',
+  'MALAWI',
+  'MALDIVES',
+  'MALI',
+  'MALTE',
+  'MAROC',
+  'MARSHALL',
+  'MAURICE',
+  'MAURITANIE',
+  'MEXIQUE',
+  'MICRONESIE',
+  'MOLDAVIE',
+  'MONACO',
+  'MONGOLIE',
+  'MONTENEGRO',
+  'MOZAMBIQUE',
+  'NAMIBIE',
+  'NAURU',
+  'NEPAL',
+  'NICARAGUA',
+  'NIGER',
+  'NIGERIA',
+  'NORVEGE',
+  'NOUVELLE-ZELANDE',
+  'OMAN',
+  'OUGANDA',
+  'OUZBEKISTAN',
+  'PAKISTAN',
+  'PALAOS',
+  'PALESTINE',
+  'PANAMA',
+  'PAPOUASIE-NOUVELLE-GUINEE',
+  'PARAGUAY',
+  'PAYS-BAS',
+  'PEROU',
+  'PHILIPPINES',
+  'POLOGNE',
+  'PORTUGAL',
+  'QATAR',
+  'ROUMANIE',
+  'ROYAUME-UNI',
+  'RUSSIE',
+  'RWANDA',
+  'SAINT-CHRISTOPHE-ET-NIEVES',
+  'SAINTE-LUCIE',
+  'SAINT-MARIN',
+  'SAINT-VINCENT-ET-LES-GRENADINES',
+  'SALOMON',
+  'SALVADOR',
+  'SAMOA',
+  'SAO TOME-ET-PRINCIPE',
+  'SENEGAL',
+  'SERBIE',
+  'SEYCHELLES',
+  'SIERRA LEONE',
+  'SINGAPOUR',
+  'SLOVAQUIE',
+  'SLOVENIE',
+  'SOMALIE',
+  'SOUDAN',
+  'SOUDAN DU SUD',
+  'SRI LANKA',
+  'SUEDE',
+  'SUISSE',
+  'SURINAME',
+  'SYRIE',
+  'TADJIKISTAN',
+  'TANZANIE',
+  'TCHAD',
+  'TCHEQUE',
+  'THAILANDE',
+  'TIMOR ORIENTAL',
+  'TOGO',
+  'TONGA',
+  'TRINITE-ET-TOBAGO',
+  'TUNISIE',
+  'TURKMENISTAN',
+  'TURQUIE',
+  'TUVALU',
+  'UKRAINE',
+  'URUGUAY',
+  'VANUATU',
+  'VATICAN',
+  'VENEZUELA',
+  'VIETNAM',
+  'YEMEN',
+  'ZAMBIE',
+  'ZIMBABWE'
+];
+  try {
+    // Supprimer d'abord les pays existants (optionnel)
+    final querySnapshot = await FirebaseFirestore.instance.collection('pays').get();
+    for (final doc in querySnapshot.docs) {
+      await doc.reference.delete();
+    }
 
-    try {
-      // Ajoutez à Firestore
+    // Ajouter tous les nouveaux pays
+    for (final country in allCountries) {
       await FirebaseFirestore.instance.collection('pays').add({
-        'nom': newCountry,
-        'createdBy': _user.uid,
+        'nom': country,
+        'createdBy': _user.uid, // ou 'system' si vous préférez
         'createdAt': FieldValue.serverTimestamp(),
       });
-
-      // Met à jour la liste locale
-      setState(() {
-        _countries.add(newCountry);
-        _selectedCountry = newCountry;
-        _newCountryController.clear();
-      });
-      
-      _showSuccessSnackbar('Pays ajouté avec succès');
-    } catch (e) {
-      debugPrint('Error adding country: $e');
-      _showErrorSnackbar('Erreur lors de l\'ajout du pays');
     }
+
+    // Mettre à jour la liste locale
+    setState(() {
+      _countries = allCountries;
+      if (_countries.isNotEmpty) {
+        _selectedCountry = _countries.first;
+      }
+    });
+
+    _showSuccessSnackbar('Pays initialisés avec succès');
+  } catch (e) {
+    debugPrint('Error seeding countries: $e');
+    _showErrorSnackbar('Erreur lors de l\'initialisation des pays');
   }
+}
   Future<void> _addNewSkill() async {
   final newSkill = _newSkillController.text.trim().toUpperCase();
   if (newSkill.isEmpty) return;
@@ -423,25 +628,7 @@ class _AccountPageState extends State<AccountPage> {
           hint: const Text('Sélectionnez un pays'),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _newCountryController,
-                decoration: const InputDecoration(
-                  labelText: "Ou ajouter un nouveau pays",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: _addNewCountry,
-              tooltip: 'Ajouter ce pays',
-            ),
-          ],
-        ),
+        
       ],
     );
   }
