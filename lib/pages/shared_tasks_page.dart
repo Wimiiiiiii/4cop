@@ -5,6 +5,7 @@ import 'package:fourcoop/widgets/task_item.dart';
 import 'package:fourcoop/widgets/add_edit_task_dialog.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 class SharedTasksPage extends StatefulWidget {
   final String projectId;
@@ -23,158 +24,31 @@ class SharedTasksPage extends StatefulWidget {
 class _SharedTasksPageState extends State<SharedTasksPage> {
   late SharedTaskRepository _taskRepository;
   String _filterStatus = 'Tous';
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+  List<SharedTask> _tasks = [];
 
   @override
   void initState() {
     super.initState();
     _taskRepository = SharedTaskRepository();
+    _taskRepository.getTasksByProject(widget.projectId).listen((tasks) {
+      setState(() {
+        _tasks = tasks;
+      });
+    });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Tâches - ${widget.projectName}',
-          style: GoogleFonts.interTight(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        centerTitle: true,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.primary,
-                theme.colorScheme.error,
-                theme.colorScheme.tertiary,
-              ],
-              stops: const [0, 0.5, 1],
-              begin: AlignmentDirectional(-1, -1),
-              end: AlignmentDirectional(1, 1),
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.filter_list),
-            onPressed: _showFilterDialog,
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              theme.colorScheme.background.withOpacity(0.3),
-              theme.colorScheme.background,
-            ],
-            stops: const [0, 0.3],
-          ),
-        ),
-        child: StreamBuilder<List<SharedTask>>(
-          stream: _taskRepository.getTasksByProject(widget.projectId),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: theme.colorScheme.error,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Erreur: ${snapshot.error}',
-                      style: GoogleFonts.inter(
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final tasks = snapshot.data ?? [];
-            final filteredTasks =
-                _filterStatus == 'Tous'
-                    ? tasks
-                    : tasks
-                        .where((task) => task.status == _filterStatus)
-                        .toList();
-
-            if (filteredTasks.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.task,
-                      size: 48,
-                      color: theme.colorScheme.onSurface.withOpacity(0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Aucune tâche ${_filterStatus.toLowerCase()}',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Appuyez sur + pour en créer une',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: theme.colorScheme.onSurface.withOpacity(0.4),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: filteredTasks.length,
-              itemBuilder: (context, index) {
-                final task = filteredTasks[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: TaskItem(
-                    task: task,
-                    onStatusChanged:
-                        (newStatus) => _taskRepository.updateTaskStatus(
-                          task.id,
-                          newStatus,
-                        ),
-                    onEdit: () => _showEditTaskDialog(task),
-                    onDelete: () => _showDeleteDialog(task),
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddTaskDialog,
-        child: const Icon(Icons.add),
-        backgroundColor: theme.colorScheme.primary,
-      ),
-    );
+  List<SharedTask> getTasksForDay(DateTime day) {
+    return _tasks
+        .where(
+          (task) =>
+              task.dueDate.year == day.year &&
+              task.dueDate.month == day.month &&
+              task.dueDate.day == day.day &&
+              (_filterStatus == 'Tous' || task.status == _filterStatus),
+        )
+        .toList();
   }
 
   void _showFilterDialog() {
@@ -320,6 +194,219 @@ class _SharedTasksPageState extends State<SharedTasksPage> {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tasksOfDay = getTasksForDay(_selectedDay ?? _focusedDay);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Tâches - ${widget.projectName}',
+          style: GoogleFonts.interTight(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primary,
+                theme.colorScheme.error,
+                theme.colorScheme.tertiary,
+              ],
+              stops: const [0, 0.5, 1],
+              begin: AlignmentDirectional(-1, -1),
+              end: AlignmentDirectional(1, 1),
+            ),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.filter_list),
+            onPressed: _showFilterDialog,
+          ),
+        ],
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              theme.colorScheme.background.withOpacity(0.3),
+              theme.colorScheme.background,
+            ],
+            stops: const [0, 0.3],
+          ),
+        ),
+        child: Column(
+          children: [
+            TableCalendar(
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: _focusedDay,
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              eventLoader: getTasksForDay,
+              onDaySelected: (selectedDay, focusedDay) {
+                setState(() {
+                  _selectedDay = selectedDay;
+                  _focusedDay = focusedDay;
+                });
+              },
+              calendarStyle: CalendarStyle(
+                markerDecoration: BoxDecoration(
+                  color: Colors.blue,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child:
+                  tasksOfDay.isEmpty
+                      ? Center(
+                        child: Text(
+                          "Aucune tâche pour ce jour.",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                      : ListView(
+                        children:
+                            tasksOfDay
+                                .map(
+                                  (task) => Card(
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    elevation: 2,
+                                    child: ListTile(
+                                      leading: Icon(
+                                        task.isPublic
+                                            ? Icons.public
+                                            : Icons.lock,
+                                        color:
+                                            task.isPublic
+                                                ? Colors.blue
+                                                : Colors.redAccent,
+                                      ),
+                                      title: Text(
+                                        task.title,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      subtitle: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          if (task.description.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 4.0,
+                                              ),
+                                              child: Text(
+                                                task.description,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 6.0,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        task.status ==
+                                                                'Terminée'
+                                                            ? Colors.green
+                                                            : (task.status ==
+                                                                    'En cours'
+                                                                ? Colors.orange
+                                                                : Colors.grey),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    task.status,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Icon(
+                                                  Icons.calendar_today,
+                                                  size: 14,
+                                                  color: Colors.blueGrey,
+                                                ),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  "${task.dueDate.day}/${task.dueDate.month}/${task.dueDate.year}",
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.blueGrey,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.edit,
+                                              color: Colors.orange,
+                                            ),
+                                            onPressed:
+                                                () => _showEditTaskDialog(task),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.delete,
+                                              color: Colors.red,
+                                            ),
+                                            onPressed:
+                                                () => _showDeleteDialog(task),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                      ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddTaskDialog,
+        child: const Icon(Icons.add),
+        backgroundColor: theme.colorScheme.primary,
+      ),
     );
   }
 }
