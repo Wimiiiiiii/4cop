@@ -113,9 +113,10 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Projet créé avec succès'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       );
@@ -127,7 +128,7 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       );
@@ -146,183 +147,205 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
         appBar: AppBar(
           title: Text(
             'Nouveau Projet',
-            style: GoogleFonts.interTight(fontWeight: FontWeight.bold),
+            style: GoogleFonts.interTight(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
           ),
           centerTitle: true,
           elevation: 0,
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.error,
+                  theme.colorScheme.tertiary,
+                ],
+                stops: [0, 0.5, 1],
+                begin: AlignmentDirectional(-1, -1),
+                end: AlignmentDirectional(1, 1),
+              ),
+            ),
+          ),
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: Container(
-                    height: 180,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(16),
-                      image: _imageFile != null
-                          ? DecorationImage(
-                              image: FileImage(_imageFile!),
-                              fit: BoxFit.cover,
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                theme.colorScheme.background.withOpacity(0.3),
+                theme.colorScheme.background,
+              ],
+              stops: [0, 0.3],
+            ),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Container(
+                      height: 180,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        image: _imageFile != null
+                            ? DecorationImage(
+                                image: FileImage(_imageFile!),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: _imageFile == null
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_photo_alternate,
+                                  size: 48,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Ajouter une image',
+                                  style: GoogleFonts.inter(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
                             )
                           : null,
                     ),
-                    child: _imageFile == null
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add_photo_alternate,
-                                size: 48,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Ajouter une image',
-                                style: GoogleFonts.inter(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          )
-                        : null,
                   ),
-                ),
-                SizedBox(height: 24),
-                _buildTextField(
-                  controller: _titreController,
-                  label: 'Titre du projet*',
-                  validator: (val) => val!.isEmpty ? 'Ce champ est obligatoire' : null,
-                ),
-                SizedBox(height: 16),
-                _buildTextField(
-                  controller: _resumeController,
-                  label: 'Résumé',
-                  maxLines: 3,
-                ),
-                SizedBox(height: 16),
-                _buildTextField(
-                  controller: _descriptionController,
-                  label: 'Description détaillée',
-                  maxLines: 5,
-                ),
-                SizedBox(height: 16),
-                isLoadingFilters
-                    ? Center(child: CircularProgressIndicator())
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _paysController.text.isNotEmpty ? _paysController.text : null,
-                              decoration: _buildDropdownDecoration('Pays'),
-                              items: countries
-                                  .map((pays) => DropdownMenuItem(
-                                        value: pays,
-                                        child: Text(pays),
-                                      ))
-                                  .toList(),
-                              onChanged: (val) => setState(() => _paysController.text = val ?? ''),
+                  SizedBox(height: 24),
+                  _buildTextField(
+                    controller: _titreController,
+                    label: 'Titre du projet*',
+                    validator: (val) => val!.isEmpty ? 'Ce champ est obligatoire' : null,
+                  ),
+                  SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _resumeController,
+                    label: 'Résumé',
+                    maxLines: 3,
+                  ),
+                  SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _descriptionController,
+                    label: 'Description détaillée',
+                    maxLines: 5,
+                  ),
+                  SizedBox(height: 16),
+                  isLoadingFilters
+                      ? Center(child: CircularProgressIndicator())
+                      : DropdownButtonFormField<String>(
+                          value: _paysController.text.isNotEmpty ? _paysController.text : null,
+                          decoration: _buildDropdownDecoration('Pays'),
+                          items: countries
+                              .map((pays) => DropdownMenuItem(
+                                    value: pays,
+                                    child: Text(pays),
+                                  ))
+                              .toList(),
+                          onChanged: (val) => setState(() => _paysController.text = val ?? ''),
+                        ),
+                  SizedBox(height: 16),
+                  isLoadingFilters
+                      ? Center(child: CircularProgressIndicator())
+                      : DropdownButtonFormField<String>(
+                          value: _themeController.text.isNotEmpty ? _themeController.text : null,
+                          decoration: _buildDropdownDecoration('Thème'),
+                          items: themes
+                              .map((theme) => DropdownMenuItem(
+                                    value: theme,
+                                    child: Text(theme),
+                                  ))
+                              .toList(),
+                          onChanged: (val) => setState(() => _themeController.text = val ?? ''),
+                        ),
+                  SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _dureeController.text.isNotEmpty ? _dureeController.text : null,
+                    decoration: _buildDropdownDecoration('Durée'),
+                    items: [
+                      "Moins d'un mois",
+                      ...List.generate(12, (index) => '${index + 1} mois'),
+                    ].map((duree) => DropdownMenuItem(
+                          value: duree,
+                          child: Text(duree),
+                        )).toList(),
+                    onChanged: (val) => setState(() => _dureeController.text = val ?? ''),
+                  ),
+                  SizedBox(height: 32),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            // Brouillon
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            side: BorderSide(color: theme.colorScheme.primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                        ],
-                      ),
-
-                SizedBox(height: 16),
-                isLoadingFilters
-                    ? Center(child: CircularProgressIndicator())
-                    : Row(
-                        children: [
-                                                Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _themeController.text.isNotEmpty ? _themeController.text : null,
-                              decoration: _buildDropdownDecoration('Thème'),
-                              items: themes
-                                  .map((theme) => DropdownMenuItem(
-                                        value: theme,
-                                        child: Text(theme),
-                                      ))
-                                  .toList(),
-                              onChanged: (val) => setState(() => _themeController.text = val ?? ''),
+                          child: Text(
+                            'Enregistrer brouillon',
+                            style: GoogleFonts.inter(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.bold,
                             ),
-                          ),],),
-
-                          
-
-                SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                      value: _dureeController.text.isNotEmpty ? _dureeController.text : null,
-                      decoration: _buildDropdownDecoration('Durée'),
-                      items: [
-                        "Moins d'un mois",
-                        ...List.generate(12, (index) => '${index + 1} mois'),
-                      ].map((duree) => DropdownMenuItem(
-                            value: duree,
-                            child: Text(duree),
-                          )).toList(),
-                      onChanged: (val) => setState(() => _dureeController.text = val ?? ''),
-                    ),
-
-                SizedBox(height: 32),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          // Brouillon
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          side: BorderSide(color: theme.colorScheme.primary),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          'Enregistrer brouillon',
-                          style: GoogleFonts.inter(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _isUploading ? null : _saveProject,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isUploading ? null : _saveProject,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
+                          child: _isUploading
+                              ? SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  'Publier le projet',
+                                  style: GoogleFonts.interTight(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                         ),
-                        child: _isUploading
-                            ? SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                'Publier le projet',
-                                style: GoogleFonts.interTight(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -388,6 +411,9 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
     final theme = Theme.of(context);
     return InputDecoration(
       labelText: label,
+      labelStyle: GoogleFonts.inter(
+        color: theme.colorScheme.onSurface.withOpacity(0.6),
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
@@ -395,9 +421,23 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
           width: 1,
         ),
       ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: theme.colorScheme.outline,
+          width: 1,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: theme.colorScheme.primary,
+          width: 2,
+        ),
+      ),
       filled: true,
       fillColor: theme.colorScheme.surface,
-      contentPadding: EdgeInsets.all(16),
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
 }
