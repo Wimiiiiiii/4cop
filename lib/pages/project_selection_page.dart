@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:fourcoop/pages/project_detail_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'create_project_form.dart';
-import '../../widgets/drawer_menu.dart';
+import 'package:fourcoop/pages/shared_tasks_page.dart';
 
-class MesProjets extends StatefulWidget {
-  const MesProjets({Key? key}) : super(key: key);
+class ProjectSelectionPage extends StatefulWidget {
+  const ProjectSelectionPage({Key? key}) : super(key: key);
 
   @override
-  State<MesProjets> createState() => _MesProjetsState();
+  State<ProjectSelectionPage> createState() => _ProjectSelectionPageState();
 }
 
-class _MesProjetsState extends State<MesProjets> {
+class _ProjectSelectionPageState extends State<ProjectSelectionPage> {
   String _filterStatus = 'Tous';
   final List<String> _statusOptions = [
     'Tous',
@@ -38,14 +36,13 @@ class _MesProjetsState extends State<MesProjets> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Mes Projets',
+          'Sélectionner un projet',
           style: GoogleFonts.interTight(
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
         ),
         centerTitle: true,
-        elevation: 0,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -54,7 +51,7 @@ class _MesProjetsState extends State<MesProjets> {
                 theme.colorScheme.error,
                 theme.colorScheme.tertiary,
               ],
-              stops: [0, 0.5, 1],
+              stops: const [0, 0.5, 1],
               begin: AlignmentDirectional(-1, -1),
               end: AlignmentDirectional(1, 1),
             ),
@@ -67,7 +64,6 @@ class _MesProjetsState extends State<MesProjets> {
           ),
         ],
       ),
-      drawer: DrawerMenu(),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -77,7 +73,7 @@ class _MesProjetsState extends State<MesProjets> {
               theme.colorScheme.background.withOpacity(0.3),
               theme.colorScheme.background,
             ],
-            stops: [0, 0.3],
+            stops: const [0, 0.3],
           ),
         ),
         child: StreamBuilder<QuerySnapshot>(
@@ -90,6 +86,7 @@ class _MesProjetsState extends State<MesProjets> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
+
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
               return Center(
                 child: Column(
@@ -210,8 +207,9 @@ class _MesProjetsState extends State<MesProjets> {
                                 context,
                                 MaterialPageRoute(
                                   builder:
-                                      (context) => ProjectDetailPage(
-                                        projetId: projet.id,
+                                      (context) => SharedTasksPage(
+                                        projectId: projet.id,
+                                        projectName: title,
                                       ),
                                 ),
                               );
@@ -298,19 +296,6 @@ class _MesProjetsState extends State<MesProjets> {
             );
           },
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CreateProjectForm()),
-          );
-        },
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add),
       ),
     );
   }

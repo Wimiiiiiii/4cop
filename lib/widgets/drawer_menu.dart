@@ -7,6 +7,7 @@ import 'package:fourcoop/pages/home_page.dart';
 import 'package:fourcoop/pages/inbox_page.dart';
 import 'package:fourcoop/pages/mes_projets.dart';
 import 'package:fourcoop/pages/shared_tasks_page.dart';
+import 'package:fourcoop/pages/project_selection_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class DrawerMenu extends StatelessWidget {
@@ -184,25 +185,7 @@ class DrawerMenu extends StatelessWidget {
                     context,
                     icon: Icons.assignment_rounded,
                     title: 'Tâches partagées',
-                    page: MesProjets(
-                      isTaskSelectionMode: true,
-                      showAppBar: true,
-                      showDrawer: false,
-                      showFAB: false,
-                      onProjectSelected: (projectId, projectName) {
-                        Navigator.pop(context); // Ferme le drawer
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) => SharedTasksPage(
-                                  projectId: projectId,
-                                  projectName: projectName,
-                                ),
-                          ),
-                        );
-                      },
-                    ),
+                    page: const ProjectSelectionPage(),
                   ),
                   _buildDrawerItem(
                     context,
