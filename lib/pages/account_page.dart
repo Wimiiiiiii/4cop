@@ -1,9 +1,9 @@
 import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 class AccountPage extends StatefulWidget {
@@ -18,16 +18,12 @@ class _AccountPageState extends State<AccountPage> {
   final _formKey = GlobalKey<FormState>();
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
-  // Contrôleurs pour les champs de texte
   late TextEditingController _nameController;
   late TextEditingController _prenomController;
-  late TextEditingController _domaineController;
   late TextEditingController _newCountryController;
   late TextEditingController _newSchoolController;
   late TextEditingController _newSkillController;
 
-
-  // Données du profil
   String? _selectedCountry;
   String? _selectedSchool;
   List<String> _skills = [];
@@ -37,7 +33,6 @@ class _AccountPageState extends State<AccountPage> {
   bool _isLoading = true;
   bool _isSaving = false;
 
-  // Données pour les menus déroulants
   List<String> _countries = [];
   List<String> _schools = [];
   List<String> _availableSkills = [];
@@ -45,26 +40,16 @@ class _AccountPageState extends State<AccountPage> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
-    _prenomController = TextEditingController();
-    _domaineController = TextEditingController();
-    _newCountryController = TextEditingController();
-    _newSchoolController = TextEditingController();
-    _newSkillController = TextEditingController();
-
+    _initializeControllers();
     _initializeData();
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _prenomController.dispose();
-    _domaineController.dispose();
-    _newCountryController.dispose();
-    _newSchoolController.dispose();
-    _newSkillController.dispose();
-
-    super.dispose();
+  void _initializeControllers() {
+    _nameController = TextEditingController();
+    _prenomController = TextEditingController();
+    _newCountryController = TextEditingController();
+    _newSchoolController = TextEditingController();
+    _newSkillController = TextEditingController();
   }
 
   Future<void> _initializeData() async {
@@ -83,14 +68,6 @@ class _AccountPageState extends State<AccountPage> {
 
   Future<void> _loadDropdownData() async {
     try {
-      // Initialisation des listes si nécessaire
-      /**await Future.wait([
-        _initializeList('pays', ['France', 'Belgique', 'Cameroun', 'Canada', 'Sénégal']),
-        _initializeList('competences', ['Flutter', 'Laravel', 'Firebase', 'Python']),
-        _initializeList('ecoles', ['ULB', 'UCLouvain', 'FPMS', 'ENSPY']),
-      ]);**/
-
-      // Chargement des listes
       final results = await Future.wait([
         _getListFromFirebase('pays'),
         _getListFromFirebase('competences'),
@@ -108,39 +85,18 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
-  Future<void> _initializeList(String collection, List<String> defaults) async {
+  Future<List<String>> _getListFromFirebase(String collection) async {
     try {
       final snapshot = await FirebaseFirestore.instance.collection(collection).get();
-      if (snapshot.docs.isEmpty) {
-        final batch = FirebaseFirestore.instance.batch();
-        for (var item in defaults) {
-          final docRef = FirebaseFirestore.instance.collection(collection).doc();
-          batch.set(docRef, {'nom': item, 'createdAt': FieldValue.serverTimestamp()});
-        }
-        await batch.commit();
-      }
+      final uniqueItems = snapshot.docs
+          .map((doc) => doc['nom'].toString().trim())
+          .toSet();
+      return uniqueItems.toList()..sort();
     } catch (e) {
-      debugPrint('Error initializing $collection: $e');
-      rethrow;
+      debugPrint('Error getting $collection list: $e');
+      return [];
     }
   }
-
-  Future<List<String>> _getListFromFirebase(String collection) async {
-  try {
-    final snapshot = await FirebaseFirestore.instance.collection(collection).get();
-
-    // On utilise un Set pour éliminer les doublons
-    final uniqueItems = snapshot.docs
-        .map((doc) => doc['nom'].toString().trim()) // On enlève les espaces
-        .toSet(); // Supprime les doublons automatiquement
-
-    return uniqueItems.toList()..sort(); // On trie si besoin
-  } catch (e) {
-    debugPrint('Error getting $collection list: $e');
-    return [];
-  }
-}
-
 
   Future<void> _loadUserData() async {
     try {
@@ -148,27 +104,9 @@ class _AccountPageState extends State<AccountPage> {
       
       if (snapshot.exists) {
         final data = snapshot.data()!;
-        if (_countries.contains(data['pays'])) {
-              _selectedCountry = data['pays'];
-            } else {
-              _selectedCountry = null;
-            }
-            if (_availableSkills.contains(data['competences'])) {
-              _skills = data['competences'];
-            } else {
-              _skills = [];
-            }
-
-            if (_schools.contains(data['ecole'])) {
-              _selectedSchool = data['ecole'];
-            } else {
-              _selectedSchool = null;
-            }
-
         setState(() {
           _nameController.text = data['nom'] ?? '';
           _prenomController.text = data['prenom'] ?? '';
-          _domaineController.text = data['domaine'] ?? '';
           _selectedCountry = data['pays'] ?? '';
           _selectedSchool = data['ecole'] ?? '';
           _skills = List<String>.from(data['competences'] ?? []);
@@ -240,7 +178,6 @@ class _AccountPageState extends State<AccountPage> {
       await FirebaseFirestore.instance.collection('users').doc(_user.uid).update({
         'nom': _nameController.text.trim(),
         'prenom': _prenomController.text.trim(),
-        'domaine': _domaineController.text.trim(),
         'pays': _selectedCountry,
         'ecole': _selectedSchool,
         'competences': _skills,
@@ -257,72 +194,41 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
-  Future<void> _addNewCountry() async {
-    final newCountry = _newCountryController.text.trim();
-    if (newCountry.isEmpty) return;
+  Future<void> _addNewSkill() async {
+    final newSkill = _newSkillController.text.trim().toUpperCase();
+    if (newSkill.isEmpty) return;
 
     try {
-      // Ajoutez à Firestore
-      await FirebaseFirestore.instance.collection('pays').add({
-        'nom': newCountry,
+      await FirebaseFirestore.instance.collection('competences').add({
+        'nom': newSkill,
         'createdBy': _user.uid,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Met à jour la liste locale
       setState(() {
-        _countries.add(newCountry);
-        _selectedCountry = newCountry;
-        _newCountryController.clear();
+        _availableSkills.add(newSkill);
+        _skills.add(newSkill);
+        _newSkillController.clear();
       });
-      
-      _showSuccessSnackbar('Pays ajouté avec succès');
+
+      _showSuccessSnackbar('Compétence ajoutée avec succès');
     } catch (e) {
-      debugPrint('Error adding country: $e');
-      _showErrorSnackbar('Erreur lors de l\'ajout du pays');
+      debugPrint('Erreur lors de l\'ajout de la compétence: $e');
+      _showErrorSnackbar('Erreur lors de l\'ajout de la compétence');
     }
   }
-  Future<void> _addNewSkill() async {
-  final newSkill = _newSkillController.text.trim();
-  if (newSkill.isEmpty) return;
-
-  try {
-    // Ajout à Firestore
-    await FirebaseFirestore.instance.collection('competences').add({
-      'nom': newSkill,
-      'createdBy': _user.uid,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    // Mise à jour de la liste locale
-    setState(() {
-      _availableSkills.add(newSkill);
-
-      _skills.add(newSkill);
-      _newSkillController.clear();
-    });
-
-    _showSuccessSnackbar('Compétence ajoutée avec succès');
-  } catch (e) {
-    debugPrint('Erreur lors de l\'ajout de la compétence: $e');
-    _showErrorSnackbar('Erreur lors de l\'ajout de la compétence');
-  }
-}
-
 
   Future<void> _addNewSchool() async {
-    final newSchool = _newSchoolController.text.trim();
+    final newSchool = _newSchoolController.text.trim().toUpperCase();
     if (newSchool.isEmpty) return;
 
     try {
-      // Ajoutez à Firestore
       await FirebaseFirestore.instance.collection('ecoles').add({
         'nom': newSchool,
         'createdBy': _user.uid,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Met à jour la liste locale
       setState(() {
         _schools.add(newSchool);
         _selectedSchool = newSchool;
@@ -354,135 +260,397 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  Widget _buildProfileImage() {
-    return GestureDetector(
-      onTap: _pickImage,
-      child: Stack(
-        alignment: Alignment.bottomRight,
-        children: [
-          CircleAvatar(
-            radius: 60,
-            backgroundColor: const Color.fromARGB(255, 154, 111, 111),
-            backgroundImage: _imageFile != null
-                ? FileImage(_imageFile!)
-                : _photoUrl != null
-                    ? NetworkImage(_photoUrl!)
-                    : const AssetImage('images/default_profile.png') as ImageProvider,
-            child: _imageFile == null && _photoUrl == null
-                ? const Icon(Icons.person, size: 60, color: Colors.grey)
-                : null,
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ScaffoldMessenger(
+      key: _scaffoldMessengerKey,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            'Mon Profil',
+            style: GoogleFonts.interTight(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
           ),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+          centerTitle: true,
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.error,
+                  theme.colorScheme.tertiary,
+                ],
+                stops: const [0, 0.5, 1],
+                begin: AlignmentDirectional(-1, -1),
+                end: AlignmentDirectional(1, 1),
+              ),
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _isSaving ? null : _saveChanges,
+              tooltip: 'Enregistrer',
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      // Profile Picture Section
+                      // Dans la méthode build, partie Profile Picture Section
+Center(
+  child: Stack(
+    children: [
+      Container(  // Suppression de la parenthèse ouvrante en trop
+        width: 120,
+        height: 120,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: theme.colorScheme.primary,
+            width: 3,
+          ),
+        ),
+        child: ClipOval(
+          child: _imageFile != null
+              ? Image.file(_imageFile!, fit: BoxFit.cover)
+              : (_photoUrl != null
+                  ? Image.network(_photoUrl!, fit: BoxFit.cover)
+                  : Icon(
+                      Icons.person,
+                      size: 60,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    )),
+        ),
+      ),
+      Positioned(
+        bottom: 0,
+        right: 0,
+        child: GestureDetector(
+          onTap: _pickImage,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.edit, size: 20, color: Colors.black),
+            child: Icon(
+              Icons.camera_alt,
+              size: 20,
+              color: theme.colorScheme.onPrimary,
+            ),
           ),
-        ],
+        ),
+      ),
+    ],
+  ),
+),
+                      const SizedBox(height: 24),
+
+                      // Personal Info Section
+                      _buildSection(
+                        context,
+                        title: 'Informations Personnelles',
+                        children: [
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: InputDecoration(
+                              labelText: 'Nom',
+                              prefixIcon: Icon(Icons.person, color: theme.colorScheme.primary),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            validator: (value) => value!.isEmpty ? 'Champ requis' : null,
+                            style: GoogleFonts.interTight(),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _prenomController,
+                            decoration: InputDecoration(
+                              labelText: 'Prénom',
+                              prefixIcon: Icon(Icons.person_outline, color: theme.colorScheme.primary),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            validator: (value) => value!.isEmpty ? 'Champ requis' : null,
+                            style: GoogleFonts.interTight(),
+                          ),
+                        ],
+                      ),
+
+                      // Location & Education Section
+                      _buildSection(
+                        context,
+                        title: 'Localisation et Formation',
+                        children: [
+                          _buildCountryField(context),
+                          const SizedBox(height: 16),
+                          _buildSchoolField(context),
+                        ],
+                      ),
+
+                      // Skills Section
+                      _buildSection(
+                        context,
+                        title: 'Compétences',
+                        children: [
+                          if (_skills.isNotEmpty) ...[
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _skills.map((skill) => Chip(
+                                label: Text(
+                                  skill,
+                                  style: GoogleFonts.interTight(),
+                                ),
+                                deleteIcon: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: theme.colorScheme.error,
+                                ),
+                                onDeleted: () => setState(() => _skills.remove(skill)),
+                                backgroundColor: theme.colorScheme.primaryContainer,
+                              )).toList(),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  hint: Text(
+                                    'Sélectionnez une compétence',
+                                    style: GoogleFonts.interTight(),
+                                  ),
+                                  items: _availableSkills
+                                      .map((e) => DropdownMenuItem(
+                                            value: e,
+                                            child: Text(
+                                              e,
+                                              style: GoogleFonts.interTight(),
+                                            ),
+                                          ))
+                                      .toList(),
+                                  onChanged: (value) {
+                                    if (value != null && !_skills.contains(value)) {
+                                      setState(() => _skills.add(value));
+                                    }
+                                  },
+                                  decoration: InputDecoration(
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _newSkillController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Ajouter une nouvelle compétence',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  style: GoogleFonts.interTight(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: Icon(Icons.add_circle),
+                                color: theme.colorScheme.primary,
+                                onPressed: _addNewSkill,
+                                tooltip: 'Ajouter cette compétence',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      // Statistics Section
+                      _buildSection(
+                        context,
+                        title: 'Statistiques',
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _buildStatisticItem(
+                                context,
+                                icon: Icons.work,
+                                value: _projectCount.toString(),
+                                label: 'Projets',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Save Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isSaving ? null : _saveChanges,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            backgroundColor: theme.colorScheme.primary,
+                          ),
+                          child: _isSaving
+                              ? CircularProgressIndicator(
+                                  color: theme.colorScheme.onPrimary)
+                              : Text(
+                                  'SAUVEGARDER LES MODIFICATIONS',
+                                  style: GoogleFonts.interTight(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onPrimary,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
   }
 
-  Widget _buildSkillsChips() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 4,
-      children: _skills.map((skill) => Chip(
-        label: Text(skill),
-        deleteIcon: const Icon(Icons.close, size: 16),
-        onDeleted: () => setState(() => _skills.remove(skill)),
-      )).toList(),
+  Widget _buildSection(BuildContext context, {required String title, required List<Widget> children}) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 20),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.interTight(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildCountryField() {
+  Widget _buildCountryField(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DropdownButtonFormField<String>(
-          value:  _countries.contains(_selectedCountry) ? _selectedCountry : null,
-          items: _countries.toSet().toList()
-          .map((String country) {
-            return DropdownMenuItem<String>(
-              value: country,
-              child: Text(country),
-            );
-          }).toList(),
+          value: _countries.contains(_selectedCountry) ? _selectedCountry : null,
+          items: _countries
+              .map((String country) => DropdownMenuItem<String>(
+                    value: country,
+                    child: Text(
+                      country,
+                      style: GoogleFonts.interTight(),
+                    ),
+                  ))
+              .toList(),
           onChanged: (value) => setState(() => _selectedCountry = value),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: "Pays",
-            prefixIcon: Icon(Icons.location_on),
-            border: OutlineInputBorder(),
+            labelStyle: GoogleFonts.interTight(),
+            prefixIcon: Icon(Icons.location_on, color: Theme.of(context).colorScheme.primary),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
-          validator: (value) => value == null
-              ? "Veuillez sélectionner un pays"
-              : null,
+          validator: (value) => value == null ? "Veuillez sélectionner un pays" : null,
           isExpanded: true,
-          hint: const Text('Sélectionnez un pays'),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _newCountryController,
-                decoration: const InputDecoration(
-                  labelText: "Ou ajouter un nouveau pays",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: _addNewCountry,
-              tooltip: 'Ajouter ce pays',
-            ),
-          ],
+          hint: Text(
+            'Sélectionnez un pays',
+            style: GoogleFonts.interTight(),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildSchoolField() {
+  Widget _buildSchoolField(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DropdownButtonFormField<String>(
           value: _schools.contains(_selectedSchool) ? _selectedSchool : null,
-          items: _schools.toSet().toList()
-          .map((String school) {
-            return DropdownMenuItem<String>(
-              value: school,
-              child: Text(school),
-            );
-          }).toList(),
+          items: _schools
+              .map((String school) => DropdownMenuItem<String>(
+                    value: school,
+                    child: Text(
+                      school,
+                      style: GoogleFonts.interTight(),
+                    ),
+                  ))
+              .toList(),
           onChanged: (value) => setState(() => _selectedSchool = value),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: "École",
-            prefixIcon: Icon(Icons.school),
-            border: OutlineInputBorder(),
+            labelStyle: GoogleFonts.interTight(),
+            prefixIcon: Icon(Icons.school, color: Theme.of(context).colorScheme.primary),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           isExpanded: true,
-          hint: const Text('Sélectionnez une école'),
+          hint: Text(
+            'Sélectionnez une école',
+            style: GoogleFonts.interTight(),
+          ),
         ),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
-              child: TextField(
+              child: TextFormField(
                 controller: _newSchoolController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: "Ou ajouter une nouvelle école",
-                  border: OutlineInputBorder(),
+                  labelStyle: GoogleFonts.interTight(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
+                style: GoogleFonts.interTight(),
               ),
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add),
+              color: Theme.of(context).colorScheme.primary,
               onPressed: _addNewSchool,
               tooltip: 'Ajouter cette école',
             ),
@@ -492,125 +660,37 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  Widget _buildLoadingIndicator() {
-    return const Center(
-      child: CircularProgressIndicator(),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldMessengerKey,
-      appBar: AppBar(
-        title: const Text("Mon Profil"),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? _buildLoadingIndicator()
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(child: _buildProfileImage()),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: "Nom",
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) => value?.trim().isEmpty ?? true
-                          ? "Veuillez entrer votre nom"
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _prenomController,
-                      decoration: const InputDecoration(
-                        labelText: "Prénom",
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildCountryField(),
-                    const SizedBox(height: 16),
-                    _buildSchoolField(),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _domaineController,
-                      decoration: const InputDecoration(
-                        labelText: "Domaine d'étude",
-                        prefixIcon: Icon(Icons.work_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text("Compétences:", style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    _buildSkillsChips(),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
-                        labelText: "Ajouter une compétence",
-                        prefixIcon: Icon(Icons.add_circle_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _availableSkills
-                          .where((skill) => !_skills.contains(skill))
-                          .map((skill) => DropdownMenuItem(
-                                value: skill,
-                                child: Text(skill),
-                              ))
-                          .toList(),
-                      onChanged: (skill) {
-                        if (skill != null) {
-                          setState(() => _skills.add(skill));
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.folder_special, color: Colors.blue),
-                        title: const Text("Projets"),
-                        subtitle: Text("$_projectCount projet${_projectCount != 1 ? 's' : ''}"),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          // Navigation vers les projets
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: _isSaving ? null : _saveChanges,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text("SAUVEGARDER LES MODIFICATIONS"),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+  Widget _buildStatisticItem(BuildContext context, {required IconData icon, required String value, required String label}) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 24,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: GoogleFonts.interTight(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.interTight(
+            fontSize: 14,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          ),
+        ),
+      ],
     );
   }
 }
