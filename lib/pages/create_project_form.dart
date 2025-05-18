@@ -21,10 +21,35 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
   final _themeController = TextEditingController();
   final _paysController = TextEditingController();
   final _dureeController = TextEditingController();
-  final _contactController = TextEditingController();
+
+  List<String> themes = [];
+  List<String> countries = [];
+  bool isLoadingFilters = true;
 
   File? _imageFile;
   bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemesAndCountries();
+  }
+
+  Future<void> _loadThemesAndCountries() async {
+    try {
+      final themeSnap = await FirebaseFirestore.instance.collection('themes').get();
+      final paysSnap = await FirebaseFirestore.instance.collection('pays').get();
+
+      setState(() {
+        themes = themeSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList();
+        countries = paysSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList();
+        isLoadingFilters = false;
+      });
+    } catch (e) {
+      print('Erreur lors du chargement des filtres : $e');
+      setState(() => isLoadingFilters = false);
+    }
+  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -61,31 +86,29 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
         imageUrl = await _uploadImage(_imageFile!);
       }
 
-            final user = FirebaseAuth.instance.currentUser;
+      final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Utilisateur non connecté');
 
       final projetRef = await FirebaseFirestore.instance.collection('projets').add({
-          'titre': _titreController.text.trim(),
-          'resume': _resumeController.text.trim(),
-          'description': _descriptionController.text.trim(),
-          'theme': _themeController.text.trim().isNotEmpty ? _themeController.text.trim() : 'Non spécifié',
-          'pays': _paysController.text.trim().isNotEmpty ? _paysController.text.trim() : 'Non spécifié',
-          'duree': _dureeController.text.trim(),
-          'contact': user.email,
-          'imageUrl': imageUrl ?? '',
-          'proprietaire': user.uid,
-          'membres':[user.email,],
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        'titre': _titreController.text.trim(),
+        'resume': _resumeController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'theme': _themeController.text.trim().isNotEmpty ? _themeController.text.trim() : 'Non spécifié',
+        'pays': _paysController.text.trim().isNotEmpty ? _paysController.text.trim() : 'Non spécifié',
+        'duree': _dureeController.text.trim(),
+        'contact': user.email,
+        'imageUrl': imageUrl ?? '',
+        'proprietaire': user.uid,
+        'membres': [user.email],
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
-        // Maintenant on ajoute le créateur dans la sous-collection membres
       await projetRef.collection('membres').doc(user.uid).set({
         'uid': user.uid,
         'email': user.email,
         'joinedAt': FieldValue.serverTimestamp(),
         'role': 'propriétaire',
       });
-
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -123,9 +146,7 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
         appBar: AppBar(
           title: Text(
             'Nouveau Projet',
-            style: GoogleFonts.interTight(
-              fontWeight: FontWeight.bold,
-            ),
+            style: GoogleFonts.interTight(fontWeight: FontWeight.bold),
           ),
           centerTitle: true,
           elevation: 0,
@@ -137,157 +158,175 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-              // Image upload section
-              GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: 180,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant,
-                  borderRadius: BorderRadius.circular(16),
-                  image: _imageFile != null
-                      ? DecorationImage(
-                    image: FileImage(_imageFile!),
-                    fit: BoxFit.cover,
-                  )
-                      : null,
-                ),
-                child: _imageFile == null
-                    ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.add_photo_alternate,
-                      size: 48,
-                      color: theme.colorScheme.onSurfaceVariant,
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    height: 180,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(16),
+                      image: _imageFile != null
+                          ? DecorationImage(
+                              image: FileImage(_imageFile!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Ajouter une image',
-                      style: GoogleFonts.inter(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    child: _imageFile == null
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_photo_alternate,
+                                size: 48,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Ajouter une image',
+                                style: GoogleFonts.inter(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          )
+                        : null,
+                  ),
+                ),
+                SizedBox(height: 24),
+                _buildTextField(
+                  controller: _titreController,
+                  label: 'Titre du projet*',
+                  validator: (val) => val!.isEmpty ? 'Ce champ est obligatoire' : null,
+                ),
+                SizedBox(height: 16),
+                _buildTextField(
+                  controller: _resumeController,
+                  label: 'Résumé',
+                  maxLines: 3,
+                ),
+                SizedBox(height: 16),
+                _buildTextField(
+                  controller: _descriptionController,
+                  label: 'Description détaillée',
+                  maxLines: 5,
+                ),
+                SizedBox(height: 16),
+                isLoadingFilters
+                    ? Center(child: CircularProgressIndicator())
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _paysController.text.isNotEmpty ? _paysController.text : null,
+                              decoration: _buildDropdownDecoration('Pays'),
+                              items: countries
+                                  .map((pays) => DropdownMenuItem(
+                                        value: pays,
+                                        child: Text(pays),
+                                      ))
+                                  .toList(),
+                              onChanged: (val) => setState(() => _paysController.text = val ?? ''),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                SizedBox(height: 16),
+                isLoadingFilters
+                    ? Center(child: CircularProgressIndicator())
+                    : Row(
+                        children: [
+                                                Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _themeController.text.isNotEmpty ? _themeController.text : null,
+                              decoration: _buildDropdownDecoration('Thème'),
+                              items: themes
+                                  .map((theme) => DropdownMenuItem(
+                                        value: theme,
+                                        child: Text(theme),
+                                      ))
+                                  .toList(),
+                              onChanged: (val) => setState(() => _themeController.text = val ?? ''),
+                            ),
+                          ),],),
+
+                          
+
+                SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                      value: _dureeController.text.isNotEmpty ? _dureeController.text : null,
+                      decoration: _buildDropdownDecoration('Durée'),
+                      items: [
+                        "Moins d'un mois",
+                        ...List.generate(12, (index) => '${index + 1} mois'),
+                      ].map((duree) => DropdownMenuItem(
+                            value: duree,
+                            child: Text(duree),
+                          )).toList(),
+                      onChanged: (val) => setState(() => _dureeController.text = val ?? ''),
+                    ),
+
+                SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          // Brouillon
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide(color: theme.colorScheme.primary),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Enregistrer brouillon',
+                          style: GoogleFonts.inter(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isUploading ? null : _saveProject,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.primary,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isUploading
+                            ? SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                'Publier le projet',
+                                style: GoogleFonts.interTight(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                   ],
-                )
-                    : null,
-              ),
-            ),
-            SizedBox(height: 24),
-
-            // Form fields
-            _buildTextField(
-              controller: _titreController,
-              label: 'Titre du projet*',
-              validator: (val) => val!.isEmpty ? 'Ce champ est obligatoire' : null,
-            ),
-            SizedBox(height: 16),
-
-            _buildTextField(
-              controller: _resumeController,
-              label: 'Résumé',
-              maxLines: 3,
-            ),
-            SizedBox(height: 16),
-
-            _buildTextField(
-              controller: _descriptionController,
-              label: 'Description détaillée',
-              maxLines: 5,
-            ),
-            SizedBox(height: 16),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTextField(
-                    controller: _themeController,
-                    label: 'Thème',
-                  ),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: _buildTextField(
-                    controller: _paysController,
-                    label: 'Pays',
-                  ),
                 ),
               ],
             ),
-            SizedBox(height: 16),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTextField(
-                    controller: _dureeController,
-                    label: 'Durée',
-                    hintText: 'ex: 3 mois',
-                  ),
-                ),
-                
-              ],
-            ),
-            SizedBox(height: 32),
-
-            // Action buttons
-            Row(
-                children: [
-            Expanded(
-            child: OutlinedButton(
-            onPressed: () {/* Sauver comme brouillon */},
-            style: OutlinedButton.styleFrom(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              side: BorderSide(color: theme.colorScheme.primary),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-              child: Text(
-                'Enregistrer brouillon',
-                style: GoogleFonts.inter(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
           ),
-          SizedBox(width: 16),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: _isUploading ? null : _saveProject,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                padding: EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-                child: _isUploading
-                    ? SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-                    : Text(
-                  'Publier le projet',
-                  style: GoogleFonts.interTight(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            ],
-          ),
-          ],
         ),
       ),
-    ),
-    ),
     );
   }
 
@@ -300,7 +339,6 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
     String? Function(String?)? validator,
   }) {
     final theme = Theme.of(context);
-
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
@@ -343,6 +381,23 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
       style: GoogleFonts.inter(
         color: theme.colorScheme.onSurface,
       ),
+    );
+  }
+
+  InputDecoration _buildDropdownDecoration(String label) {
+    final theme = Theme.of(context);
+    return InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: theme.colorScheme.outline,
+          width: 1,
+        ),
+      ),
+      filled: true,
+      fillColor: theme.colorScheme.surface,
+      contentPadding: EdgeInsets.all(16),
     );
   }
 }

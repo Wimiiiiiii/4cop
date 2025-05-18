@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'pages/mes_projets.dart';
 import 'pages/home_page.dart';
 
@@ -38,6 +39,27 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
+  // Fonction de Reinitialisation des mots de passe
+  void resetPassword() async {
+    if (_emailController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Veuillez entrer votre email pour réinitialiser le mot de passe.')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: _emailController.text.trim());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Email de réinitialisation envoyé.')),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message = _getErrorMessage(e.code);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  // Authentification Classique
   Future<void> handleAuth() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -51,7 +73,8 @@ class _AuthPageState extends State<AuthPage> {
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-      } else {
+      } 
+      else {
         userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
@@ -79,11 +102,11 @@ class _AuthPageState extends State<AuthPage> {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage),
           ));
-          } finally {
+      } finally {
           setState(() => isLoading = false);
-          }
-      }
-
+        }
+  }
+  
   String _getErrorMessage(String code) {
     switch (code) {
       case 'email-already-in-use': return "Cet email est déjà utilisé.";
@@ -94,6 +117,34 @@ class _AuthPageState extends State<AuthPage> {
       default: return "Une erreur est survenue. Veuillez réessayer.";
     }
   }
+
+  // Authentification par google
+  Future<void> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+
+      if (googleUser == null) return; // L'utilisateur a annulé
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => HomePage()),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur de connexion Google : ${e.toString()}")),
+      );
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +200,7 @@ class _AuthPageState extends State<AuthPage> {
                   style: GoogleFonts.interTight(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: const Color.fromARGB(255, 54, 49, 49),
                   ),
                 ),
                 SizedBox(height: 4),
@@ -159,7 +210,7 @@ class _AuthPageState extends State<AuthPage> {
                       : 'Créez un nouveau compte',
                   style: GoogleFonts.inter(
                     fontSize: 14,
-                    color: Colors.white70,
+                    color: const Color.fromARGB(179, 196, 141, 224),
                   ),
 
                 ),
@@ -221,6 +272,25 @@ class _AuthPageState extends State<AuthPage> {
               onPressed: () => setState(() => passwordVisibility = !passwordVisibility),
             ),
           ),
+
+          // Bouton mot de passe oublié
+          if (isLogin) ...[
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: resetPassword,
+                child: Text(
+                  'Mot de passe oublié ?',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: theme.colorScheme.secondary,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: 8),
+          ],
+
           SizedBox(height: 24),
             ElevatedButton(
               onPressed: isLoading ? null : handleAuth,
@@ -256,6 +326,25 @@ class _AuthPageState extends State<AuthPage> {
                 style: GoogleFonts.inter(
                   color: theme.colorScheme.primary,
                 ),
+              ),
+            ),
+
+            // Bouton google
+            ElevatedButton.icon(
+              icon: Image.asset(
+                'assets/images/google_logo.png', // Ton logo Google (ou icône Material)
+                height: 24,
+              ),
+              label: Text(
+                "Continuer avec Google",
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+              ),
+              onPressed: isLoading ? null : signInWithGoogle,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black87,
+                padding: EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
         ],

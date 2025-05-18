@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:fourcoop/pages/group_detail_page.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fourcoop/pages/user_profile_page.dart'; // Importez votre page de profil
 
 class ChatPage extends StatefulWidget {
   final String chatId;
@@ -74,16 +76,25 @@ class _ChatPageState extends State<ChatPage> {
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      await FirebaseFirestore.instance.collection('chats').doc(widget.chatId).update({
-        'timestamp': FieldValue.serverTimestamp(),
+      await chatRef.update({
+        'lastMessage': message,
+        'lastMessageTime': FieldValue.serverTimestamp(),
       });
-
 
       _messageController.clear();
       _scrollToBottom();
     } catch (e) {
       print('Erreur lors de l\'envoi du message: $e');
     }
+  }
+
+  void _navigateToProfile(String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserProfilePage(userId: userId),
+      ),
+    );
   }
 
   @override
@@ -98,9 +109,20 @@ class _ChatPageState extends State<ChatPage> {
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return Text('Groupe', style: GoogleFonts.interTight());
                   final data = snapshot.data!.data() as Map<String, dynamic>?;
-                  return Text(
-                    data?['name'] ?? 'Groupe',
-                    style: GoogleFonts.interTight(fontWeight: FontWeight.bold),
+                  return InkWell(
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => GroupDetailsPage(groupId: widget.chatId),
+                          ),
+                        );
+                      // Navigation vers les détails du groupe si besoin
+                    },
+                    child: Text(
+                      data?['name'] ?? 'Groupe',
+                      style: GoogleFonts.interTight(fontWeight: FontWeight.bold),
+                    ),
                   );
                 },
               )
@@ -109,9 +131,12 @@ class _ChatPageState extends State<ChatPage> {
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return Text('Discussion', style: GoogleFonts.interTight());
                   final data = snapshot.data!.data() as Map<String, dynamic>?;
-                  return Text(
-                    data?['nom'] ?? 'Utilisateur',
-                    style: GoogleFonts.interTight(fontWeight: FontWeight.bold),
+                  return InkWell(
+                    onTap: () => _navigateToProfile(widget.otherUserId!),
+                    child: Text(
+                      '${data?['prenom'] ?? ''} ${data?['nom'] ?? ''}'.trim(),
+                      style: GoogleFonts.interTight(fontWeight: FontWeight.bold),
+                    ),
                   );
                 },
               ),
@@ -218,12 +243,15 @@ class _ChatPageState extends State<ChatPage> {
                                     final senderName = senderData['prenom'] ?? 'Utilisateur';
                                     return Padding(
                                       padding: const EdgeInsets.only(left: 8, bottom: 2),
-                                      child: Text(
-                                        senderName,
-                                        style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                      child: InkWell(
+                                        onTap: () => _navigateToProfile(msg['senderId']),
+                                        child: Text(
+                                          senderName,
+                                          style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                          ),
                                         ),
                                       ),
                                     );
