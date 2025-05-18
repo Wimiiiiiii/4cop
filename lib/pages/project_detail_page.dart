@@ -30,19 +30,22 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
   @override
   void initState() {
     super.initState();
-    projetRef = FirebaseFirestore.instance.collection('projets').doc(widget.projetId);
+    projetRef = FirebaseFirestore.instance
+        .collection('projets')
+        .doc(widget.projetId);
     checkIfAlreadySubmitted();
   }
 
-   Future<void> checkIfAlreadySubmitted() async {
+  Future<void> checkIfAlreadySubmitted() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc = await FirebaseFirestore.instance
-          .collection('projets')
-          .doc(widget.projetId)
-          .collection('candidatures')
-          .doc(user.uid)
-          .get();
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('projets')
+              .doc(widget.projetId)
+              .collection('candidatures')
+              .doc(user.uid)
+              .get();
       if (doc.exists) {
         setState(() {
           hasSubmitted = true;
@@ -52,35 +55,33 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
   }
 
   Future<void> _goToUserProfile(String email) async {
-  try {
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('email', isEqualTo: email)
-        .limit(1)
-        .get();
+    try {
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .where('email', isEqualTo: email)
+              .limit(1)
+              .get();
 
-    if (querySnapshot.docs.isNotEmpty) {
-      final userId = querySnapshot.docs.first.id;
+      if (querySnapshot.docs.isNotEmpty) {
+        final userId = querySnapshot.docs.first.id;
 
-      if (!mounted) return;
-      Navigator.push(
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => UserProfilePage(userId: userId)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Utilisateur non trouvé pour cet e-mail')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
         context,
-        MaterialPageRoute(
-          builder: (_) => UserProfilePage(userId: userId),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Utilisateur non trouvé pour cet e-mail')),
-      );
+      ).showSnackBar(SnackBar(content: Text('Erreur : ${e.toString()}')));
     }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Erreur : ${e.toString()}')),
-    );
   }
-}
-
 
   Future<void> submitCandidature() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -91,26 +92,30 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           .collection('candidatures')
           .doc(user.uid)
           .set({
-        'email': user.email,
-        'status': 'en attente',
-        'submittedAt': FieldValue.serverTimestamp(),
-      });
+            'email': user.email,
+            'status': 'en attente',
+            'submittedAt': FieldValue.serverTimestamp(),
+          });
       setState(() {
         hasSubmitted = true;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Candidature soumise')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Candidature soumise')));
     }
   }
 
-    void _startNewGroup() {
+  void _startNewGroup() {
     final user = FirebaseAuth.instance.currentUser;
     setState(() => _isMenuOpen = false);
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => GroupCreationPage(currentUserId: user!.uid,projetId: widget.projetId),
+        builder:
+            (_) => GroupCreationPage(
+              currentUserId: user!.uid,
+              projetId: widget.projetId,
+            ),
       ),
     );
   }
@@ -122,6 +127,90 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de la mise à jour: $e')),
       );
+    }
+  }
+
+  Future<void> _deleteProject() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    final projetDoc = await projetRef.get();
+    final data = projetDoc.data() as Map<String, dynamic>;
+
+    if (data['proprietaire'] != currentUser.uid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Seul le créateur peut supprimer ce projet'),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              'Supprimer le projet',
+              style: GoogleFonts.interTight(fontWeight: FontWeight.bold),
+            ),
+            content: Text(
+              'Êtes-vous sûr de vouloir supprimer ce projet ? Cette action est irréversible.',
+              style: GoogleFonts.inter(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Annuler', style: GoogleFonts.inter()),
+              ),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    // Supprimer les sous-collections d'abord
+                    await _deleteSubcollections();
+                    // Supprimer le projet
+                    await projetRef.delete();
+                    if (!mounted) return;
+                    Navigator.pop(context); // Ferme la boîte de dialogue
+                    Navigator.pop(context); // Retourne à la page précédente
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Projet supprimé avec succès'),
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Erreur lors de la suppression: $e'),
+                      ),
+                    );
+                  }
+                },
+                child: Text(
+                  'Supprimer',
+                  style: GoogleFonts.inter(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ),
+            ],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+    );
+  }
+
+  Future<void> _deleteSubcollections() async {
+    // Supprimer les candidatures
+    final candidatures = await projetRef.collection('candidatures').get();
+    for (var doc in candidatures.docs) {
+      await doc.reference.delete();
+    }
+    final membres = await projetRef.collection('membres').get();
+    for (var doc in membres.docs) {
+      await doc.reference.delete();
     }
   }
 
@@ -157,19 +246,36 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
           StreamBuilder<DocumentSnapshot>(
             stream: projetRef.snapshots(),
             builder: (context, snapshot) {
-              final isFavorite = (snapshot.data?.data() as Map<String, dynamic>?)?['isFavorite'] ?? false;
-              return IconButton(
-                icon: Icon(
-                  isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorite ? Colors.red : Colors.white,
-                ),
-                onPressed: () => _toggleFavorite(isFavorite),
+              if (!snapshot.hasData) return const SizedBox.shrink();
+
+              final data = snapshot.data!.data() as Map<String, dynamic>;
+              final currentUser = FirebaseAuth.instance.currentUser;
+              final isOwner =
+                  currentUser != null &&
+                  data['proprietaire'] == currentUser.uid;
+              final isFavorite = data['isFavorite'] ?? false;
+
+              return Row(
+                children: [
+                  if (isOwner)
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.white),
+                      onPressed: _deleteProject,
+                    ),
+                  IconButton(
+                    icon: Icon(
+                      isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: isFavorite ? Colors.red : Colors.white,
+                    ),
+                    onPressed: () => _toggleFavorite(isFavorite),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.share, color: Colors.white),
+                    onPressed: () => _shareProject(),
+                  ),
+                ],
               );
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.white),
-            onPressed: () => _shareProject(),
           ),
         ],
       ),
@@ -219,7 +325,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
             final imageUrl = data['imageUrl'] as String?;
             final contact = data['contact'] as String?;
             final currentUser = FirebaseAuth.instance.currentUser;
-            final isOwner = currentUser != null && data['proprietaire'] == currentUser.uid;
+            final isOwner =
+                currentUser != null && data['proprietaire'] == currentUser.uid;
 
             return Stack(
               children: [
@@ -242,15 +349,18 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: imageUrl != null && imageUrl.isNotEmpty
-                              ? Image.network(
-                                  imageUrl,
-                                  width: double.infinity,
-                                  height: 220,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => _buildImagePlaceholder(theme),
-                                )
-                              : _buildImagePlaceholder(theme),
+                          child:
+                              imageUrl != null && imageUrl.isNotEmpty
+                                  ? Image.network(
+                                    imageUrl,
+                                    width: double.infinity,
+                                    height: 220,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (_, __, ___) =>
+                                            _buildImagePlaceholder(theme),
+                                  )
+                                  : _buildImagePlaceholder(theme),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -271,12 +381,19 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                         children: [
                           if ((data['theme'] as String?)?.isNotEmpty ?? false)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withOpacity(0.1),
+                                color: theme.colorScheme.primary.withOpacity(
+                                  0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: theme.colorScheme.primary.withOpacity(0.3),
+                                  color: theme.colorScheme.primary.withOpacity(
+                                    0.3,
+                                  ),
                                 ),
                               ),
                               child: Text(
@@ -289,12 +406,18 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                             ),
                           if (data['pays'] != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.secondary.withOpacity(0.1),
+                                color: theme.colorScheme.secondary.withOpacity(
+                                  0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: theme.colorScheme.secondary.withOpacity(0.3),
+                                  color: theme.colorScheme.secondary
+                                      .withOpacity(0.3),
                                 ),
                               ),
                               child: Text(
@@ -307,7 +430,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                             ),
                           if (createdAt != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.surfaceVariant,
                                 borderRadius: BorderRadius.circular(12),
@@ -342,7 +468,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                         child: Text(
                           data['resume'] ?? 'Aucun résumé fourni',
                           style: GoogleFonts.inter(
-                            fontSize: 15, 
+                            fontSize: 15,
                             height: 1.5,
                             color: theme.colorScheme.onSurface.withOpacity(0.8),
                           ),
@@ -367,9 +493,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                           ],
                         ),
                         child: Text(
-                          data['description'] ?? 'Aucune description disponible',
+                          data['description'] ??
+                              'Aucune description disponible',
                           style: GoogleFonts.inter(
-                            fontSize: 15, 
+                            fontSize: 15,
                             height: 1.5,
                             color: theme.colorScheme.onSurface.withOpacity(0.8),
                           ),
@@ -397,7 +524,9 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                             data['duree'],
                             style: GoogleFonts.inter(
                               fontSize: 15,
-                              color: theme.colorScheme.onSurface.withOpacity(0.8),
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.8,
+                              ),
                             ),
                           ),
                         ),
@@ -425,7 +554,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.email, color: theme.colorScheme.primary),
+                                Icon(
+                                  Icons.email,
+                                  color: theme.colorScheme.primary,
+                                ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Text(
@@ -438,7 +570,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                                 ),
                                 Icon(
                                   Icons.chevron_right,
-                                  color: theme.colorScheme.onSurface.withOpacity(0.3),
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.3),
                                 ),
                               ],
                             ),
@@ -446,62 +579,72 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
                         ),
                       ],
 
-
-                      if(isOwner) ...[
+                      if (isOwner) ...[
                         // Section Candidatures
-const SizedBox(height: 24),
-_buildSectionTitle('Candidatures'),
-const SizedBox(height: 12),
-Container(
-  padding: const EdgeInsets.all(16),
-  decoration: BoxDecoration(
-    color: theme.colorScheme.surface,
-    borderRadius: BorderRadius.circular(12),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.05),
-        blurRadius: 8,
-        offset: const Offset(0, 4),
-      ),
-    ],
-  ),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        "Consultez les candidatures reçues.",
-        style: GoogleFonts.inter(
-          fontSize: 15,
-          color: theme.colorScheme.onSurface.withOpacity(0.8),
-        ),
-      ),
-      const SizedBox(height: 16),
-      SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: theme.colorScheme.primary,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          icon: const Icon(Icons.assignment_ind, color: Colors.white),
-          label: const Text('Voir les candidatures', style: TextStyle(color: Colors.white)),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CandidaturesPage(projetId: widget.projetId),
-              ),
-            );
-          },
-        ),
-      ),
-    ],
-  ),
-),
-
+                        const SizedBox(height: 24),
+                        _buildSectionTitle('Candidatures'),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Consultez les candidatures reçues.",
+                                style: GoogleFonts.inter(
+                                  fontSize: 15,
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.8),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.primary,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.assignment_ind,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    'Voir les candidatures',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => CandidaturesPage(
+                                              projetId: widget.projetId,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
 
                       if (!isOwner) ...[
@@ -510,90 +653,115 @@ Container(
                         const SizedBox(height: 12),
                         Row(
                           children: [
-Expanded(
-  child: ElevatedButton.icon(
-    style: ElevatedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      backgroundColor:Theme.of(context).cardColor,
-    ),
-    onPressed: () async {
-      final String ownerId = data['proprietaire'];
-      final String userId = currentUser!.uid;
-      
-      // Debug
-      print("OwnerID: $ownerId | UserID: $userId");
-      
-      if (ownerId == userId) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Vous ne pouvez pas vous envoyer un message à vous-même")),
-        );
-        return;
-      }
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  backgroundColor: Theme.of(context).cardColor,
+                                ),
+                                onPressed: () async {
+                                  final String ownerId = data['proprietaire'];
+                                  final String userId = currentUser!.uid;
 
-      final chatId = _generateChatId(userId, ownerId);
-      print("Generated ChatID: $chatId");
+                                  // Debug
+                                  print("OwnerID: $ownerId | UserID: $userId");
 
-      try {
-        final chatDoc = await FirebaseFirestore.instance
-            .collection('chats')
-            .doc(chatId)
-            .get();
+                                  if (ownerId == userId) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          "Vous ne pouvez pas vous envoyer un message à vous-même",
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
 
-        if (!chatDoc.exists) {
-          print("Création d'un nouveau chat...");
-          await FirebaseFirestore.instance
-              .collection('chats')
-              .doc(chatId)
-              .set({
-                'participants': [userId, ownerId],
-                'createdAt': FieldValue.serverTimestamp(),
-                'lastSeen_${currentUser.uid}': FieldValue.serverTimestamp(),
-                'lastSeen_$ownerId': FieldValue.serverTimestamp(),
-                'timestamp':  FieldValue.serverTimestamp(),
-              });
-        }
+                                  final chatId = _generateChatId(
+                                    userId,
+                                    ownerId,
+                                  );
+                                  print("Generated ChatID: $chatId");
 
-        if (!mounted) return;
-        
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChatPage(
-              chatId: chatId,
-              otherUserId: ownerId,
-            ),
-          ),
-        );
-      } catch (e) {
-        print("Erreur chat: $e");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erreur: ${e.toString()}")),
-        );
-      }
-    },
-    icon: const Icon(Icons.chat),
-    label: const Text('Contacter'),
-  ),
-),
+                                  try {
+                                    final chatDoc =
+                                        await FirebaseFirestore.instance
+                                            .collection('chats')
+                                            .doc(chatId)
+                                            .get();
+
+                                    if (!chatDoc.exists) {
+                                      print("Création d'un nouveau chat...");
+                                      await FirebaseFirestore.instance
+                                          .collection('chats')
+                                          .doc(chatId)
+                                          .set({
+                                            'participants': [userId, ownerId],
+                                            'createdAt':
+                                                FieldValue.serverTimestamp(),
+                                            'lastSeen_${currentUser.uid}':
+                                                FieldValue.serverTimestamp(),
+                                            'lastSeen_$ownerId':
+                                                FieldValue.serverTimestamp(),
+                                            'timestamp':
+                                                FieldValue.serverTimestamp(),
+                                          });
+                                    }
+
+                                    if (!mounted) return;
+
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => ChatPage(
+                                              chatId: chatId,
+                                              otherUserId: ownerId,
+                                            ),
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    print("Erreur chat: $e");
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          "Erreur: ${e.toString()}",
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.chat),
+                                label: const Text('Contacter'),
+                              ),
+                            ),
 
                             const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: hasSubmitted ? null : submitCandidature,
+                                onPressed:
+                                    hasSubmitted ? null : submitCandidature,
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  backgroundColor: hasSubmitted ? Colors.grey : Theme.of(context).cardColor,
+                                  backgroundColor:
+                                      hasSubmitted
+                                          ? Colors.grey
+                                          : Theme.of(context).cardColor,
                                 ),
-                                child: Text(hasSubmitted ? 'Déjà postulé' : 'Postuler'),
+                                child: Text(
+                                  hasSubmitted ? 'Déjà postulé' : 'Postuler',
+                                ),
                               ),
-
-                            
                             ),
                           ],
                         ),
@@ -604,34 +772,35 @@ Expanded(
                   ),
                 ),
 
-if (isOwner)
-  Positioned(
-    bottom: 24,
-    right: 24,
-    child: SpeedDial(
-      icon: Icons.add,
-      activeIcon: Icons.close,
-      backgroundColor: theme.colorScheme.primary,
-      foregroundColor: Colors.white,
-      children: [
-        SpeedDialChild(
-          child: const Icon(Icons.edit),
-          backgroundColor: theme.colorScheme.secondary,
-          label: 'Modifier le projet',
-          labelStyle: GoogleFonts.inter(),
-          onTap: () => _editProject(),
-        ),
-        SpeedDialChild(
-          child: const Icon(Icons.group_add),
-          backgroundColor: theme.colorScheme.tertiary,
-          label: 'Créer un groupe',
-          labelStyle: GoogleFonts.inter(),
-          onTap: () => _startNewGroup(), // définie dans ton code déjà
-        ),
-      ],
-    ),
-  ),
-
+                if (isOwner)
+                  Positioned(
+                    bottom: 24,
+                    right: 24,
+                    child: SpeedDial(
+                      icon: Icons.add,
+                      activeIcon: Icons.close,
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      children: [
+                        SpeedDialChild(
+                          child: const Icon(Icons.edit),
+                          backgroundColor: theme.colorScheme.secondary,
+                          label: 'Modifier le projet',
+                          labelStyle: GoogleFonts.inter(),
+                          onTap: () => _editProject(),
+                        ),
+                        SpeedDialChild(
+                          child: const Icon(Icons.group_add),
+                          backgroundColor: theme.colorScheme.tertiary,
+                          label: 'Créer un groupe',
+                          labelStyle: GoogleFonts.inter(),
+                          onTap:
+                              () =>
+                                  _startNewGroup(), // définie dans ton code déjà
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             );
           },
@@ -661,10 +830,7 @@ if (isOwner)
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: GoogleFonts.interTight(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-      ),
+      style: GoogleFonts.interTight(fontSize: 20, fontWeight: FontWeight.bold),
     );
   }
 
@@ -675,10 +841,11 @@ if (isOwner)
 
   Future<void> _shareProject() async {
     try {
-      final projetDoc = await FirebaseFirestore.instance
-          .collection('projets')
-          .doc(widget.projetId)
-          .get();
+      final projetDoc =
+          await FirebaseFirestore.instance
+              .collection('projets')
+              .doc(widget.projetId)
+              .get();
 
       if (!projetDoc.exists) return;
 
@@ -697,14 +864,11 @@ if (isOwner)
   Téléchargez l'application FourCoop pour en savoir plus !
   """;
 
-      await Share.share(
-        message,
-        subject: 'Découvrez ce projet FourCoop',
-      );
+      await Share.share(message, subject: 'Découvrez ce projet FourCoop');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors du partage: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur lors du partage: $e')));
     }
   }
 
@@ -712,16 +876,19 @@ if (isOwner)
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vous devez être connecté pour modifier ce projet')),
+        const SnackBar(
+          content: Text('Vous devez être connecté pour modifier ce projet'),
+        ),
       );
       return;
     }
 
     try {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('projets')
-          .orderBy('createdAt', descending: true)
-          .get();
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('projets')
+              .orderBy('createdAt', descending: true)
+              .get();
 
       QueryDocumentSnapshot? projetDoc;
       for (final doc in querySnapshot.docs) {
@@ -730,20 +897,22 @@ if (isOwner)
           break;
         }
       }
-      
+
       final projetData = projetDoc?.data() as Map<String, dynamic>;
       final createdBy = projetData['proprietaire'] as String?;
 
       if (createdBy != user.uid) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Seul le propriétaire peut modifier ce projet')),
+          const SnackBar(
+            content: Text('Seul le propriétaire peut modifier ce projet'),
+          ),
         );
         return;
       }
       if (projetDoc == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Projet introuvable')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Projet introuvable')));
         return;
       }
 
@@ -752,10 +921,11 @@ if (isOwner)
       final updatedProject = await Navigator.push<Map<String, dynamic>>(
         context,
         MaterialPageRoute(
-          builder: (_) => EditProjectPage(
-            projetId: widget.projetId,
-            initialData: projetData,
-          ),
+          builder:
+              (_) => EditProjectPage(
+                projetId: widget.projetId,
+                initialData: projetData,
+              ),
         ),
       );
 
@@ -767,7 +937,9 @@ if (isOwner)
     } catch (e) {
       debugPrint('Erreur lors de la modification : $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Une erreur s'est produite lors de l'édition.")),
+        const SnackBar(
+          content: Text("Une erreur s'est produite lors de l'édition."),
+        ),
       );
     }
   }
