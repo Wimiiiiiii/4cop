@@ -120,16 +120,6 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
     );
   }
 
-  Future<void> _toggleFavorite(bool isFavorite) async {
-    try {
-      await projetRef.update({'isFavorite': !isFavorite});
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la mise à jour: $e')),
-      );
-    }
-  }
-
   Future<void> _deleteProject() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
@@ -220,55 +210,36 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Détails du projet',
-          style: GoogleFonts.interTight(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+        title: StreamBuilder<DocumentSnapshot>(
+          stream: projetRef.snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Text('Chargement...');
+            }
+            final data = snapshot.data!.data() as Map<String, dynamic>?;
+            final title = data?['titre'] as String? ?? 'Détails du projet';
+            return Text(title);
+          },
         ),
         centerTitle: true,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.primary,
-                theme.colorScheme.error,
-                theme.colorScheme.tertiary,
-              ],
-              stops: [0, 0.5, 1],
-              begin: AlignmentDirectional(-1, -1),
-              end: AlignmentDirectional(1, 1),
-            ),
-          ),
-        ),
         actions: [
           StreamBuilder<DocumentSnapshot>(
             stream: projetRef.snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const SizedBox.shrink();
-
-              final data = snapshot.data!.data() as Map<String, dynamic>;
+              final data = snapshot.data!.data() as Map<String, dynamic>?;
               final currentUser = FirebaseAuth.instance.currentUser;
               final isOwner =
                   currentUser != null &&
-                  data['proprietaire'] == currentUser.uid;
-              final isFavorite = data['isFavorite'] ?? false;
-
+                  data?['proprietaire'] == currentUser.uid;
               return Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isOwner)
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.white),
                       onPressed: _deleteProject,
                     ),
-                  IconButton(
-                    icon: Icon(
-                      isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: isFavorite ? Colors.red : Colors.white,
-                    ),
-                    onPressed: () => _toggleFavorite(isFavorite),
-                  ),
                   IconButton(
                     icon: const Icon(Icons.share, color: Colors.white),
                     onPressed: () => _shareProject(),
@@ -278,6 +249,20 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
             },
           ),
         ],
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primary,
+                theme.colorScheme.error,
+                theme.colorScheme.tertiary,
+              ],
+              stops: const [0, 0.5, 1],
+              begin: AlignmentDirectional(-1, -1),
+              end: AlignmentDirectional(1, 1),
+            ),
+          ),
+        ),
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -326,7 +311,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage> {
             final contact = data['contact'] as String?;
             final currentUser = FirebaseAuth.instance.currentUser;
             final isOwner =
-                currentUser != null && data['proprietaire'] == currentUser.uid;
+                currentUser != null && data?['proprietaire'] == currentUser.uid;
 
             return Stack(
               children: [

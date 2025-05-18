@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/drawer_menu.dart';
 import 'project_detail_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,11 +21,14 @@ class _HomePageState extends State<HomePage> {
   List<String> themes = [];
   List<String> countries = [];
   bool isLoadingFilters = true;
+  bool showFavoritesOnly = false;
+  List<String> favoriteProjects = [];
 
   @override
   void initState() {
     super.initState();
     _loadFilterData();
+    _loadFavorites();
   }
 
   Future<void> _loadFilterData() async {
@@ -47,6 +51,38 @@ class _HomePageState extends State<HomePage> {
               .toList();
 
       isLoadingFilters = false;
+    });
+  }
+
+  Future<void> _loadFavorites() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+      setState(() {
+        favoriteProjects = List<String>.from(userDoc.data()?['favoris'] ?? []);
+      });
+    }
+  }
+
+  Future<void> _toggleFavorite(String projectId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() {
+      if (favoriteProjects.contains(projectId)) {
+        favoriteProjects.remove(projectId);
+      } else {
+        favoriteProjects.add(projectId);
+      }
+    });
+
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      'favoris': favoriteProjects,
     });
   }
 
@@ -104,6 +140,17 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           IconButton(
+            icon: Icon(
+              showFavoritesOnly ? Icons.star : Icons.star_border,
+              color: showFavoritesOnly ? Colors.amber : Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                showFavoritesOnly = !showFavoritesOnly;
+              });
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.filter_alt),
             onPressed:
                 () => setState(() => isFilterExpanded = !isFilterExpanded),
@@ -115,6 +162,7 @@ class _HomePageState extends State<HomePage> {
                   searchQuery = '';
                   selectedTheme = null;
                   selectedCountry = null;
+                  showFavoritesOnly = false;
                 }),
           ),
         ],
@@ -276,7 +324,17 @@ class _HomePageState extends State<HomePage> {
                       final matchesCountry =
                           selectedCountry == null ||
                           data['pays'] == selectedCountry;
-                      return matchesSearch && matchesTheme && matchesCountry;
+                      final matchesFavorites =
+                          !showFavoritesOnly ||
+                          favoriteProjects.contains(doc.id);
+                      final statut = (data['statut'] ?? '').toString().trim();
+                      final isVisible =
+                          statut != 'Terminé' && statut != 'Suspendu';
+                      return matchesSearch &&
+                          matchesTheme &&
+                          matchesCountry &&
+                          matchesFavorites &&
+                          isVisible;
                     }).toList();
 
                 if (projets.isEmpty) {
@@ -340,7 +398,26 @@ class _HomePageState extends State<HomePage> {
                             Text('Pays : ${data['pays'] ?? 'Non spécifié'}'),
                           ],
                         ),
-                        trailing: const Icon(Icons.chevron_right),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                favoriteProjects.contains(projets[index].id)
+                                    ? Icons.star
+                                    : Icons.star_border,
+                                color:
+                                    favoriteProjects.contains(projets[index].id)
+                                        ? Colors.amber
+                                        : theme.colorScheme.onSurface
+                                            .withOpacity(0.6),
+                              ),
+                              onPressed:
+                                  () => _toggleFavorite(projets[index].id),
+                            ),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
                       ),
                     );
                   },

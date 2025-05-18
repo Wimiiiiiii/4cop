@@ -30,10 +30,49 @@ class _MesProjetsState extends State<MesProjets> {
   String _filterStatus = 'Tous';
   final List<String> _statusOptions = [
     'Tous',
+    'Indéfini',
     'En attente',
     'En cours',
     'Terminé',
+    'Suspendu',
   ];
+  List<String> favoriteProjects = [];
+  bool showFavoritesOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+      setState(() {
+        favoriteProjects = List<String>.from(userDoc.data()?['favoris'] ?? []);
+      });
+    }
+  }
+
+  Future<void> _toggleFavorite(String projectId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    setState(() {
+      if (favoriteProjects.contains(projectId)) {
+        favoriteProjects.remove(projectId);
+      } else {
+        favoriteProjects.add(projectId);
+      }
+    });
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      'favoris': favoriteProjects,
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +135,17 @@ class _MesProjetsState extends State<MesProjets> {
               widget.isTaskSelectionMode
                   ? []
                   : [
+                    IconButton(
+                      icon: Icon(
+                        showFavoritesOnly ? Icons.star : Icons.star_border,
+                        color: showFavoritesOnly ? Colors.amber : Colors.white,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          showFavoritesOnly = !showFavoritesOnly;
+                        });
+                      },
+                    ),
                     IconButton(
                       icon: const Icon(Icons.filter_list),
                       onPressed: () => _showFilterDialog(context),
@@ -170,9 +220,15 @@ class _MesProjetsState extends State<MesProjets> {
                 ? allProjects
                 : allProjects
                     .where(
-                      (doc) => (doc.data() as Map)['status'] == _filterStatus,
+                      (doc) => (doc.data() as Map)['statut'] == _filterStatus,
                     )
                     .toList();
+        final displayedProjects =
+            showFavoritesOnly
+                ? filteredProjects
+                    .where((doc) => favoriteProjects.contains(doc.id))
+                    .toList()
+                : filteredProjects;
 
         return Column(
           children: [
@@ -209,7 +265,7 @@ class _MesProjetsState extends State<MesProjets> {
                   ),
                   const Spacer(),
                   Text(
-                    '${filteredProjects.length} projet(s)',
+                    '${displayedProjects.length} projet(s)',
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       color: theme.colorScheme.onSurface.withOpacity(0.6),
@@ -224,14 +280,14 @@ class _MesProjetsState extends State<MesProjets> {
                   horizontal: 16,
                   vertical: 8,
                 ),
-                itemCount: filteredProjects.length,
+                itemCount: displayedProjects.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final projet = filteredProjects[index];
+                  final projet = displayedProjects[index];
                   final data = projet.data() as Map<String, dynamic>;
 
                   final String title = data['titre'] ?? 'Sans titre';
-                  final String status = data['status'] ?? 'Indéfini';
+                  final String status = data['statut'] ?? 'Indéfini';
                   final String themeName = data['theme'] ?? '';
                   final String date = data['date'] ?? '';
                   final statusColor = _getStatusColor(status, theme);
@@ -280,13 +336,9 @@ class _MesProjetsState extends State<MesProjets> {
                                       horizontal: 10,
                                       vertical: 4,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: statusColor.withOpacity(0.3),
-                                        width: 1,
-                                      ),
+                                    decoration: _getStatusDecoration(
+                                      status,
+                                      theme,
                                     ),
                                     child: Text(
                                       status,
@@ -333,6 +385,20 @@ class _MesProjetsState extends State<MesProjets> {
                                           .withOpacity(0.8),
                                     ),
                                   ),
+                                  const Spacer(),
+                                  IconButton(
+                                    icon: Icon(
+                                      favoriteProjects.contains(projet.id)
+                                          ? Icons.star
+                                          : Icons.star_border,
+                                      color:
+                                          favoriteProjects.contains(projet.id)
+                                              ? Colors.amber
+                                              : theme.colorScheme.onSurface
+                                                  .withOpacity(0.6),
+                                    ),
+                                    onPressed: () => _toggleFavorite(projet.id),
+                                  ),
                                 ],
                               ),
                             ],
@@ -353,14 +419,34 @@ class _MesProjetsState extends State<MesProjets> {
   Color _getStatusColor(String? status, ThemeData theme) {
     switch (status) {
       case 'En attente':
-        return theme.colorScheme.error;
+        return Colors.redAccent;
       case 'En cours':
-        return theme.colorScheme.primary;
+        return Colors.blueAccent;
       case 'Terminé':
-        return theme.colorScheme.secondary;
+        return Colors.deepPurple;
+      case 'Suspendu':
+        return Colors.orangeAccent;
+      case 'Indéfini':
+        return Colors.grey;
       default:
         return theme.colorScheme.onSurface;
     }
+  }
+
+  BoxDecoration _getStatusDecoration(String? status, ThemeData theme) {
+    final color = _getStatusColor(status, theme);
+    return BoxDecoration(
+      color: color.withOpacity(0.18),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: color, width: 2),
+      boxShadow: [
+        BoxShadow(
+          color: color.withOpacity(0.10),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
   }
 
   void _showFilterDialog(BuildContext context) {
