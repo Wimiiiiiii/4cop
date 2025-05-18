@@ -41,8 +41,8 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
       final paysSnap = await FirebaseFirestore.instance.collection('pays').get();
 
       setState(() {
-        themes = themeSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList();
-        countries = paysSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList();
+        themes = themeSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList()..sort();
+        countries = paysSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList()..sort();
         isLoadingFilters = false;
       });
     } catch (e) {
@@ -92,6 +92,7 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
       final projetRef = await FirebaseFirestore.instance.collection('projets').add({
         'titre': _titreController.text.trim(),
         'resume': _resumeController.text.trim(),
+        'statut':'En attente de lancement',
         'description': _descriptionController.text.trim(),
         'theme': _themeController.text.trim().isNotEmpty ? _themeController.text.trim() : 'Non spécifié',
         'pays': _paysController.text.trim().isNotEmpty ? _paysController.text.trim() : 'Non spécifié',
