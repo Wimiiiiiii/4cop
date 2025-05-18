@@ -37,12 +37,18 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
 
   Future<void> _loadThemesAndCountries() async {
     try {
-      final themeSnap = await FirebaseFirestore.instance.collection('themes').get();
-      final paysSnap = await FirebaseFirestore.instance.collection('pays').get();
+      final themeSnap =
+          await FirebaseFirestore.instance.collection('themes').get();
+      final paysSnap =
+          await FirebaseFirestore.instance.collection('pays').get();
 
       setState(() {
-        themes = themeSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList()..sort();
-        countries = paysSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList()..sort();
+        themes =
+            themeSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList()
+              ..sort();
+        countries =
+            paysSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList()
+              ..sort();
         isLoadingFilters = false;
       });
     } catch (e) {
@@ -89,20 +95,29 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Utilisateur non connecté');
 
-      final projetRef = await FirebaseFirestore.instance.collection('projets').add({
-        'titre': _titreController.text.trim(),
-        'resume': _resumeController.text.trim(),
-        'statut':'En attente de lancement',
-        'description': _descriptionController.text.trim(),
-        'theme': _themeController.text.trim().isNotEmpty ? _themeController.text.trim() : 'Non spécifié',
-        'pays': _paysController.text.trim().isNotEmpty ? _paysController.text.trim() : 'Non spécifié',
-        'duree': _dureeController.text.trim(),
-        'contact': user.email,
-        'imageUrl': imageUrl ?? '',
-        'proprietaire': user.uid,
-        'membres': [user.email],
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      final projetRef = await FirebaseFirestore.instance
+          .collection('projets')
+          .add({
+            'titre': _titreController.text.trim(),
+            'resume': _resumeController.text.trim(),
+            'description': _descriptionController.text.trim(),
+            'statut':'En attente de lancement',
+            'theme':
+                _themeController.text.trim().isNotEmpty
+                    ? _themeController.text.trim()
+                    : 'Non spécifié',
+            'pays':
+                _paysController.text.trim().isNotEmpty
+                    ? _paysController.text.trim()
+                    : 'Non spécifié',
+            'duree': _dureeController.text.trim(),
+            
+            'contact': user.email,
+            'imageUrl': imageUrl ?? '',
+            'proprietaire': user.uid,
+            'membres': [user.email],
+            'createdAt': FieldValue.serverTimestamp(),
+          });
 
       await projetRef.collection('membres').doc(user.uid).set({
         'uid': user.uid,
@@ -203,39 +218,43 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
                             offset: const Offset(0, 4),
                           ),
                         ],
-                        image: _imageFile != null
-                            ? DecorationImage(
-                                image: FileImage(_imageFile!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
+                        image:
+                            _imageFile != null
+                                ? DecorationImage(
+                                  image: FileImage(_imageFile!),
+                                  fit: BoxFit.cover,
+                                )
+                                : null,
                       ),
-                      child: _imageFile == null
-                          ? Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.add_photo_alternate,
-                                  size: 48,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Ajouter une image',
-                                  style: GoogleFonts.inter(
+                      child:
+                          _imageFile == null
+                              ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_photo_alternate,
+                                    size: 48,
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
-                                ),
-                              ],
-                            )
-                          : null,
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Ajouter une image',
+                                    style: GoogleFonts.inter(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              )
+                              : null,
                     ),
                   ),
                   SizedBox(height: 24),
                   _buildTextField(
                     controller: _titreController,
                     label: 'Titre du projet*',
-                    validator: (val) => val!.isEmpty ? 'Ce champ est obligatoire' : null,
+                    validator:
+                        (val) =>
+                            val!.isEmpty ? 'Ce champ est obligatoire' : null,
                   ),
                   SizedBox(height: 16),
                   _buildTextField(
@@ -253,42 +272,73 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
                   isLoadingFilters
                       ? Center(child: CircularProgressIndicator())
                       : DropdownButtonFormField<String>(
-                          value: _paysController.text.isNotEmpty ? _paysController.text : null,
-                          decoration: _buildDropdownDecoration('Pays'),
-                          items: countries
-                              .map((pays) => DropdownMenuItem(
+                        value:
+                            _paysController.text.isNotEmpty
+                                ? _paysController.text
+                                : null,
+                        decoration: _buildDropdownDecoration('Pays'),
+                        items:
+                            countries
+                                .map(
+                                  (pays) => DropdownMenuItem(
                                     value: pays,
                                     child: Text(pays),
-                                  ))
-                              .toList(),
-                          onChanged: (val) => setState(() => _paysController.text = val ?? ''),
-                        ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            (val) => setState(
+                              () => _paysController.text = val ?? '',
+                            ),
+                      ),
                   SizedBox(height: 16),
                   isLoadingFilters
                       ? Center(child: CircularProgressIndicator())
                       : DropdownButtonFormField<String>(
-                          value: _themeController.text.isNotEmpty ? _themeController.text : null,
-                          decoration: _buildDropdownDecoration('Thème'),
-                          items: themes
-                              .map((theme) => DropdownMenuItem(
+                        value:
+                            _themeController.text.isNotEmpty
+                                ? _themeController.text
+                                : null,
+                        decoration: _buildDropdownDecoration('Thème'),
+                        items:
+                            themes
+                                .map(
+                                  (theme) => DropdownMenuItem(
                                     value: theme,
                                     child: Text(theme),
-                                  ))
-                              .toList(),
-                          onChanged: (val) => setState(() => _themeController.text = val ?? ''),
-                        ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            (val) => setState(
+                              () => _themeController.text = val ?? '',
+                            ),
+                      ),
                   SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _dureeController.text.isNotEmpty ? _dureeController.text : null,
+                    value:
+                        _dureeController.text.isNotEmpty
+                            ? _dureeController.text
+                            : null,
                     decoration: _buildDropdownDecoration('Durée'),
-                    items: [
-                      "Moins d'un mois",
-                      ...List.generate(12, (index) => '${index + 1} mois'),
-                    ].map((duree) => DropdownMenuItem(
-                          value: duree,
-                          child: Text(duree),
-                        )).toList(),
-                    onChanged: (val) => setState(() => _dureeController.text = val ?? ''),
+                    items:
+                        [
+                              "Moins d'un mois",
+                              ...List.generate(
+                                12,
+                                (index) => '${index + 1} mois',
+                              ),
+                            ]
+                            .map(
+                              (duree) => DropdownMenuItem(
+                                value: duree,
+                                child: Text(duree),
+                              ),
+                            )
+                            .toList(),
+                    onChanged:
+                        (val) =>
+                            setState(() => _dureeController.text = val ?? ''),
                   ),
                   SizedBox(height: 32),
                   Row(
@@ -325,22 +375,23 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: _isUploading
-                              ? SizedBox(
-                                  height: 24,
-                                  width: 24,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
+                          child:
+                              _isUploading
+                                  ? SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : Text(
+                                    'Publier le projet',
+                                    style: GoogleFonts.interTight(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                )
-                              : Text(
-                                  'Publier le projet',
-                                  style: GoogleFonts.interTight(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
                         ),
                       ),
                     ],
@@ -379,32 +430,21 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: theme.colorScheme.outline,
-            width: 1,
-          ),
+          borderSide: BorderSide(color: theme.colorScheme.outline, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: theme.colorScheme.outline,
-            width: 1,
-          ),
+          borderSide: BorderSide(color: theme.colorScheme.outline, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: theme.colorScheme.primary,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
         ),
         filled: true,
         fillColor: theme.colorScheme.surface,
         contentPadding: EdgeInsets.all(16),
       ),
-      style: GoogleFonts.inter(
-        color: theme.colorScheme.onSurface,
-      ),
+      style: GoogleFonts.inter(color: theme.colorScheme.onSurface),
     );
   }
 
@@ -417,24 +457,15 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: theme.colorScheme.outline,
-          width: 1,
-        ),
+        borderSide: BorderSide(color: theme.colorScheme.outline, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: theme.colorScheme.outline,
-          width: 1,
-        ),
+        borderSide: BorderSide(color: theme.colorScheme.outline, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: theme.colorScheme.primary,
-          width: 2,
-        ),
+        borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
       ),
       filled: true,
       fillColor: theme.colorScheme.surface,
