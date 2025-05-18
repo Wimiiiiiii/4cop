@@ -2,21 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
- 
+
 class EditProjectPage extends StatefulWidget {
   final String projetId;
   final Map<String, dynamic> initialData;
- 
+
   const EditProjectPage({
     super.key,
     required this.projetId,
     required this.initialData,
   });
- 
+
   @override
   State<EditProjectPage> createState() => _EditProjectPageState();
 }
- 
+
 class _EditProjectPageState extends State<EditProjectPage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titreController;
@@ -27,8 +27,13 @@ class _EditProjectPageState extends State<EditProjectPage> {
   late TextEditingController _dureeController;
   late TextEditingController _newMemberController;
   late TextEditingController _statutController;
-  final List<String> _statutOptions = ['En attente','En cours', 'Terminé', 'Suspendu'];
- 
+  final List<String> _statutOptions = [
+    'En attente',
+    'En cours',
+    'Terminé',
+    'Suspendu',
+  ];
+
   List<String> _membres = [];
   bool _isLoading = false;
   List<String> _themeOptions = [];
@@ -43,7 +48,7 @@ class _EditProjectPageState extends State<EditProjectPage> {
   List<Map<String, dynamic>> _userSuggestions = [];
   String _searchMember = '';
   bool _isSearchingUser = false;
- 
+
   @override
   void initState() {
     super.initState();
@@ -53,7 +58,7 @@ class _EditProjectPageState extends State<EditProjectPage> {
     _statutController = TextEditingController(
       text: widget.initialData['statut'] ?? 'En attente',
     );
- 
+
     _resumeController = TextEditingController(
       text: widget.initialData['resume'] ?? '',
     );
@@ -73,7 +78,7 @@ class _EditProjectPageState extends State<EditProjectPage> {
     _membres = List<String>.from(widget.initialData['membres'] ?? []);
     _loadThemesAndCountries();
   }
- 
+
   @override
   void dispose() {
     _titreController.dispose();
@@ -84,15 +89,15 @@ class _EditProjectPageState extends State<EditProjectPage> {
     _dureeController.dispose();
     _newMemberController.dispose();
     _statutController.dispose();
- 
+
     super.dispose();
   }
- 
+
   Future<void> _saveProject() async {
     if (!_formKey.currentState!.validate()) return;
- 
+
     setState(() => _isLoading = true);
- 
+
     try {
       await FirebaseFirestore.instance
           .collection('projets')
@@ -108,7 +113,7 @@ class _EditProjectPageState extends State<EditProjectPage> {
             'membres': _membres,
             'updatedAt': FieldValue.serverTimestamp(),
           });
- 
+
       Navigator.pop(context, {
         'status': 'success',
         'message': 'Projet mis à jour avec succès',
@@ -121,7 +126,7 @@ class _EditProjectPageState extends State<EditProjectPage> {
       setState(() => _isLoading = false);
     }
   }
- 
+
   Future<void> _addMember() async {
     final email = _newMemberController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
@@ -136,7 +141,7 @@ class _EditProjectPageState extends State<EditProjectPage> {
       );
       return;
     }
- 
+
     if (_membres.contains(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -149,14 +154,14 @@ class _EditProjectPageState extends State<EditProjectPage> {
       );
       return;
     }
- 
+
     final userSnap =
         await FirebaseFirestore.instance
             .collection('users')
             .where('email', isEqualTo: email)
             .limit(1)
             .get();
- 
+
     if (userSnap.docs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -169,27 +174,40 @@ class _EditProjectPageState extends State<EditProjectPage> {
       );
       return;
     }
- 
+
     setState(() {
       _membres.add(email);
       _newMemberController.clear();
       _userSuggestions = [];
     });
   }
- 
-  void _removeMember(String email) {
+
+  void _removeMember(String email) async {
     setState(() {
       _membres.remove(email);
     });
+    // Retirer le membre des groupes de discussion liés à ce projet
+    final chats =
+        await FirebaseFirestore.instance
+            .collection('chats')
+            .where('projetId', isEqualTo: widget.projetId)
+            .get();
+    for (final chat in chats.docs) {
+      final participants = List.from(chat['participants'] ?? []);
+      if (participants.contains(email)) {
+        participants.remove(email);
+        await chat.reference.update({'participants': participants});
+      }
+    }
   }
- 
+
   Future<void> _loadThemesAndCountries() async {
     try {
       final themeSnap =
           await FirebaseFirestore.instance.collection('themes').get();
       final paysSnap =
           await FirebaseFirestore.instance.collection('pays').get();
- 
+
       setState(() {
         _themeOptions =
             themeSnap.docs.map((doc) => doc['nom'].toString()).toSet().toList()
@@ -203,13 +221,13 @@ class _EditProjectPageState extends State<EditProjectPage> {
       setState(() => _isLoadingFilters = false);
     }
   }
- 
+
   Future<void> _searchUsers(String query) async {
     setState(() {
       _isSearchingUser = true;
       _userSuggestions = [];
     });
- 
+
     if (query.trim().isEmpty) {
       setState(() {
         _isSearchingUser = false;
@@ -217,9 +235,9 @@ class _EditProjectPageState extends State<EditProjectPage> {
       });
       return;
     }
- 
+
     final result = await FirebaseFirestore.instance.collection('users').get();
- 
+
     final filtered =
         result.docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
@@ -231,7 +249,7 @@ class _EditProjectPageState extends State<EditProjectPage> {
               nom.contains(searchLower) ||
               prenom.contains(searchLower);
         }).toList();
- 
+
     setState(() {
       _userSuggestions =
           filtered.map((doc) {
@@ -245,11 +263,11 @@ class _EditProjectPageState extends State<EditProjectPage> {
       _isSearchingUser = false;
     });
   }
- 
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
- 
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -547,34 +565,40 @@ class _EditProjectPageState extends State<EditProjectPage> {
                               },
                             ),
                           ),
-                          const SizedBox(height: 16),
-                              DropdownButtonFormField<String>(
-                                value: _statutController.text,
-                                items: _statutOptions.map((String statut) {
-                                  return DropdownMenuItem<String>(
-                                    value: statut,
-                                    child: Text(statut, style: GoogleFonts.inter()),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _statutController.text = value!;
-                                  });
-                                },
-                                decoration: InputDecoration(
-                                  labelText: 'Statut du projet*',
-                                  labelStyle: GoogleFonts.inter(),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _statutController.text,
+                          items:
+                              _statutOptions.map((String statut) {
+                                return DropdownMenuItem<String>(
+                                  value: statut,
+                                  child: Text(
+                                    statut,
+                                    style: GoogleFonts.inter(),
                                   ),
-                                  filled: true,
-                                  fillColor: theme.colorScheme.surface,
-                                ),
-                                validator: (value) => value == null || value.isEmpty
-                                    ? 'Ce champ est obligatoire'
-                                    : null,
-                              ),
- 
+                                );
+                              }).toSet().toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _statutController.text = value!;
+                            });
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Statut du projet*',
+                            labelStyle: GoogleFonts.inter(),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: theme.colorScheme.surface,
+                          ),
+                          validator:
+                              (value) =>
+                                  value == null || value.isEmpty
+                                      ? 'Ce champ est obligatoire'
+                                      : null,
+                        ),
+
                         const SizedBox(height: 8),
                         ..._membres.map(
                           (email) => Card(

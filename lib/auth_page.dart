@@ -114,6 +114,7 @@ class _AuthPageState extends State<AuthPage> {
       case 'wrong-password': return "Mot de passe incorrect.";
       case 'invalid-email': return "Format d'email invalide.";
       case 'weak-password': return "Le mot de passe est trop faible.";
+      case 'invalid-credential': return "Email ou mot de passe incorrect.";
       default: return "Une erreur est survenue. Veuillez réessayer.";
     }
   }

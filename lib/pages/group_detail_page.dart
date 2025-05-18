@@ -34,20 +34,19 @@ class _GroupDetailsPageState extends State<GroupDetailsPage> {
 
     _groupData.then((group) {
       if (group['participants'] != null && group['participants'] is List) {
-_membersData = Future.wait(
-  (group['participants'] as List).map((userId) {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .get()
-        .then((snapshot) {
-          var data = snapshot.data() ?? {};
-          data['id'] = userId;
-          return data;
-        });
-  }).toList(), // 👈 ici tu fermes le .map et convertis en List
-); // 👈 ici tu fermes le Future.wait
-
+        _membersData = Future.wait(
+          (group['participants'] as List).map((userId) {
+            return FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .get()
+                .then((snapshot) {
+                  var data = snapshot.data() ?? {};
+                  data['id'] = userId;
+                  return data;
+                });
+          }).toList(), // 👈 ici tu fermes le .map et convertis en List
+        ); // 👈 ici tu fermes le Future.wait
       }
 
       if (group['projetId'] != null) {
@@ -62,7 +61,10 @@ _membersData = Future.wait(
     });
   }
 
-  void _navigateToUserProfile(BuildContext context, Map<String, dynamic> userData) {
+  void _navigateToUserProfile(
+    BuildContext context,
+    Map<String, dynamic> userData,
+  ) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -74,14 +76,16 @@ _membersData = Future.wait(
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: FutureBuilder<Map<String, dynamic>>(
           future: _groupData,
           builder: (context, snapshot) {
             return Text(
-              snapshot.hasData ? snapshot.data!['name'] ?? 'Détails du groupe' : 'Détails du groupe',
+              snapshot.hasData
+                  ? snapshot.data!['name'] ?? 'Détails du groupe'
+                  : 'Détails du groupe',
               style: GoogleFonts.interTight(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
@@ -135,9 +139,10 @@ _membersData = Future.wait(
         }
 
         final group = snapshot.data!;
-        final createdAt = group['createdAt'] != null 
-            ? (group['createdAt'] as Timestamp).toDate().toLocal()
-            : null;
+        final createdAt =
+            group['createdAt'] != null
+                ? (group['createdAt'] as Timestamp).toDate().toLocal()
+                : null;
 
         return Card(
           elevation: 3,
@@ -166,10 +171,14 @@ _membersData = Future.wait(
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      group['isGroup'] == true ? 'Groupe' : 'Conversation privée',
+                      group['isGroup'] == true
+                          ? 'Groupe'
+                          : 'Conversation privée',
                       style: GoogleFonts.interTight(
                         fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                   ],
@@ -188,8 +197,11 @@ _membersData = Future.wait(
                         'Créé le ${createdAt.day}/${createdAt.month}/${createdAt.year}',
                         style: GoogleFonts.interTight(
                           fontSize: 16,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -234,6 +246,14 @@ _membersData = Future.wait(
                 ),
                 const SizedBox(height: 12),
                 ...members.map((member) {
+                  final nom =
+                      (member['nom'] ?? '').toString().isEmpty
+                          ? null
+                          : member['nom'];
+                  final email = member['email'] ?? '';
+                  final isDeleted =
+                      member['deleted'] == true ||
+                      (nom == null && (email == null || email == ''));
                   return InkWell(
                     onTap: () => _navigateToUserProfile(context, member),
                     borderRadius: BorderRadius.circular(12),
@@ -247,10 +267,14 @@ _membersData = Future.wait(
                       child: Row(
                         children: [
                           CircleAvatar(
-                            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primaryContainer,
                             child: Icon(
                               Icons.person,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -259,16 +283,20 @@ _membersData = Future.wait(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  member['nom'] ?? 'Utilisateur sans nom',
+                                  isDeleted
+                                      ? 'Utilisateur inexistant'
+                                      : (nom ?? 'Utilisateur sans nom'),
                                   style: GoogleFonts.interTight(
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 Text(
-                                  member['email'] ?? '',
+                                  email,
                                   style: GoogleFonts.interTight(
                                     fontSize: 14,
-                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withOpacity(0.6),
                                   ),
                                 ),
                               ],
@@ -276,7 +304,9 @@ _membersData = Future.wait(
                           ),
                           Icon(
                             Icons.chevron_right,
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.4),
                           ),
                         ],
                       ),
@@ -307,10 +337,11 @@ _membersData = Future.wait(
         }
 
         return FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
-              .collection('projets')
-              .doc(projectId)
-              .get(),
+          future:
+              FirebaseFirestore.instance
+                  .collection('projets')
+                  .doc(projectId)
+                  .get(),
           builder: (context, projectSnapshot) {
             if (projectSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -320,14 +351,16 @@ _membersData = Future.wait(
               return const SizedBox();
             }
 
-            final project = projectSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+            final project =
+                projectSnapshot.data!.data() as Map<String, dynamic>? ?? {};
 
             return InkWell(
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ProjectDetailPage(projetId: projectId),
+                    builder:
+                        (context) => ProjectDetailPage(projetId: projectId),
                   ),
                 );
               },
@@ -355,12 +388,18 @@ _membersData = Future.wait(
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.tertiaryContainer,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.tertiaryContainer,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
                               Icons.work,
-                              color: Theme.of(context).colorScheme.onTertiaryContainer,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onTertiaryContainer,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -381,7 +420,9 @@ _membersData = Future.wait(
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.interTight(
                                     fontSize: 14,
-                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withOpacity(0.6),
                                   ),
                                 ),
                               ],
@@ -389,7 +430,9 @@ _membersData = Future.wait(
                           ),
                           Icon(
                             Icons.chevron_right,
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.4),
                           ),
                         ],
                       ),
