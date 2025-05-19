@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class EditProjectPage extends StatefulWidget {
   final String projetId;
@@ -27,6 +30,10 @@ class _EditProjectPageState extends State<EditProjectPage> {
   late TextEditingController _dureeController;
   late TextEditingController _newMemberController;
   late TextEditingController _statutController;
+  File? _imageFile;
+  String? _imageUrl;
+  bool _isUploadingImage = false;
+  final ImagePicker _picker = ImagePicker();
   final List<String> _statutOptions = [
     'En attente',
     'En cours',
@@ -76,6 +83,7 @@ class _EditProjectPageState extends State<EditProjectPage> {
     );
     _newMemberController = TextEditingController();
     _membres = List<String>.from(widget.initialData['membres'] ?? []);
+    _imageUrl = widget.initialData['imageUrl'];
     _loadThemesAndCountries();
   }
 
@@ -91,6 +99,75 @@ class _EditProjectPageState extends State<EditProjectPage> {
     _statutController.dispose();
 
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _imageFile = File(pickedFile.path);
+          _isUploadingImage = true;
+        });
+
+        // Upload image to Firebase Storage
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('projets')
+            .child(widget.projetId)
+            .child('image.jpg');
+
+        await storageRef.putFile(_imageFile!);
+        final downloadUrl = await storageRef.getDownloadURL();
+
+        setState(() {
+          _imageUrl = downloadUrl;
+          _isUploadingImage = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isUploadingImage = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la sélection de l\'image: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteImage() async {
+    try {
+      setState(() => _isUploadingImage = true);
+      
+      // Delete from Firebase Storage if there's an existing image
+      if (_imageUrl != null) {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('projets')
+            .child(widget.projetId)
+            .child('image.jpg');
+        await storageRef.delete();
+      }
+
+      setState(() {
+        _imageFile = null;
+        _imageUrl = null;
+        _isUploadingImage = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image supprimée avec succès')),
+      );
+    } catch (e) {
+      setState(() => _isUploadingImage = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la suppression de l\'image: $e')),
+      );
+    }
   }
 
   Future<void> _saveProject() async {
@@ -111,6 +188,7 @@ class _EditProjectPageState extends State<EditProjectPage> {
             'pays': _paysController.text,
             'duree': _dureeController.text,
             'membres': _membres,
+            'imageUrl': _imageUrl,
             'updatedAt': FieldValue.serverTimestamp(),
           });
 
@@ -299,348 +377,418 @@ class _EditProjectPageState extends State<EditProjectPage> {
           ),
         ],
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      theme.colorScheme.background.withOpacity(0.3),
-                      theme.colorScheme.background,
-                    ],
-                    stops: const [0, 0.3],
-                  ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    theme.colorScheme.background.withOpacity(0.3),
+                    theme.colorScheme.background,
+                  ],
+                  stops: const [0, 0.3],
                 ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextFormField(
-                          controller: _titreController,
-                          decoration: InputDecoration(
-                            labelText: 'Titre*',
-                            labelStyle: GoogleFonts.inter(),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                          style: GoogleFonts.inter(),
-                          validator:
-                              (value) =>
-                                  value!.isEmpty
-                                      ? 'Ce champ est obligatoire'
-                                      : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _resumeController,
-                          decoration: InputDecoration(
-                            labelText: 'Résumé',
-                            labelStyle: GoogleFonts.inter(),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                          style: GoogleFonts.inter(),
-                          maxLines: 3,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _descriptionController,
-                          decoration: InputDecoration(
-                            labelText: 'Description',
-                            labelStyle: GoogleFonts.inter(),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                          style: GoogleFonts.inter(),
-                          maxLines: 5,
-                        ),
-                        const SizedBox(height: 16),
-                        _isLoadingFilters
-                            ? Center(child: CircularProgressIndicator())
-                            : Column(
-                              children: [
-                                DropdownButtonFormField<String>(
-                                  value:
-                                      _themeController.text.isNotEmpty
-                                          ? _themeController.text
-                                          : null,
-                                  items:
-                                      _themeOptions
-                                          .map(
-                                            (theme) => DropdownMenuItem(
-                                              value: theme,
-                                              child: Text(
-                                                theme,
-                                                style: GoogleFonts.inter(),
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                  onChanged: (val) {
-                                    setState(
-                                      () => _themeController.text = val ?? '',
-                                    );
-                                  },
-                                  decoration: InputDecoration(
-                                    labelText: 'Thème',
-                                    labelStyle: GoogleFonts.inter(),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    filled: true,
-                                    fillColor: theme.colorScheme.surface,
-                                  ),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
+                        children: [
+                          GestureDetector(
+                            onTap: _pickImage,
+                            child: Container(
+                              width: double.infinity,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: theme.colorScheme.outline.withOpacity(0.5),
                                 ),
-                                const SizedBox(height: 16),
-                                DropdownButtonFormField<String>(
-                                  value:
-                                      _paysController.text.isNotEmpty
-                                          ? _paysController.text
-                                          : null,
-                                  items:
-                                      _paysOptions
-                                          .map(
-                                            (pays) => DropdownMenuItem(
-                                              value: pays,
-                                              child: Text(
-                                                pays,
-                                                style: GoogleFonts.inter(),
+                              ),
+                              child: _isUploadingImage
+                                  ? const Center(child: CircularProgressIndicator())
+                                  : _imageFile != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: Image.file(
+                                            _imageFile!,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : _imageUrl != null
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: Image.network(
+                                                _imageUrl!,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) =>
+                                                    _buildImagePlaceholder(theme),
                                               ),
-                                            ),
-                                          )
-                                          .toList(),
-                                  onChanged: (val) {
-                                    setState(
-                                      () => _paysController.text = val ?? '',
-                                    );
-                                  },
-                                  decoration: InputDecoration(
-                                    labelText: 'Pays',
-                                    labelStyle: GoogleFonts.inter(),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    filled: true,
-                                    fillColor: theme.colorScheme.surface,
-                                  ),
-                                ),
-                              ],
+                                            )
+                                          : _buildImagePlaceholder(theme),
                             ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          value:
-                              _dureeController.text.isNotEmpty
-                                  ? _dureeController.text
-                                  : null,
-                          items:
-                              _dureeOptions
-                                  .map(
-                                    (duree) => DropdownMenuItem(
-                                      value: duree,
-                                      child: Text(
-                                        duree,
-                                        style: GoogleFonts.inter(),
+                          ),
+                          if (_imageFile != null || _imageUrl != null)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.error.withOpacity(0.9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: _deleteImage,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _titreController,
+                        decoration: InputDecoration(
+                          labelText: 'Titre*',
+                          labelStyle: GoogleFonts.inter(),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                        ),
+                        style: GoogleFonts.inter(),
+                        validator:
+                            (value) =>
+                                value!.isEmpty
+                                    ? 'Ce champ est obligatoire'
+                                    : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _resumeController,
+                        decoration: InputDecoration(
+                          labelText: 'Résumé',
+                          labelStyle: GoogleFonts.inter(),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                        ),
+                        style: GoogleFonts.inter(),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: InputDecoration(
+                          labelText: 'Description',
+                          labelStyle: GoogleFonts.inter(),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                        ),
+                        style: GoogleFonts.inter(),
+                        maxLines: 5,
+                      ),
+                      const SizedBox(height: 16),
+                      _isLoadingFilters
+                          ? Center(child: CircularProgressIndicator())
+                          : Column(
+                            children: [
+                              DropdownButtonFormField<String>(
+                                value:
+                                    _themeController.text.isNotEmpty
+                                        ? _themeController.text
+                                        : null,
+                                items:
+                                    _themeOptions
+                                        .map(
+                                          (theme) => DropdownMenuItem(
+                                            value: theme,
+                                            child: Text(
+                                              theme,
+                                              style: GoogleFonts.inter(),
+                                            ),
+                                          ),
+                                        ).toSet()
+                                        .toList(),
+                                onChanged: (val) {
+                                  setState(
+                                    () => _themeController.text = val ?? '',
+                                  );
+                                },
+                                decoration: InputDecoration(
+                                  labelText: 'Thème',
+                                  labelStyle: GoogleFonts.inter(),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor: theme.colorScheme.surface,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              DropdownButtonFormField<String>(
+                                value:
+                                    _paysController.text.isNotEmpty
+                                        ? _paysController.text
+                                        : null,
+                                items:
+                                    _paysOptions
+                                        .map(
+                                          (pays) => DropdownMenuItem(
+                                            value: pays,
+                                            child: Text(
+                                              pays,
+                                              style: GoogleFonts.inter(),
+                                            ),
+                                          ),
+                                        ).toSet()
+                                        .toList(),
+                                onChanged: (val) {
+                                  setState(
+                                    () => _paysController.text = val ?? '',
+                                  );
+                                },
+                                decoration: InputDecoration(
+                                  labelText: 'Pays',
+                                  labelStyle: GoogleFonts.inter(),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor: theme.colorScheme.surface,
+                                ),
+                              ),
+                            ],
+                          ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value:
+                            _dureeController.text.isNotEmpty
+                                ? _dureeController.text
+                                : null,
+                        items:
+                            _dureeOptions
+                                .map(
+                                  (duree) => DropdownMenuItem(
+                                    value: duree,
+                                    child: Text(
+                                      duree,
+                                      style: GoogleFonts.inter(),
+                                    ),
+                                  ),
+                                ).toSet()
+                                .toList(),
+                        onChanged: (val) {
+                          setState(() => _dureeController.text = val ?? '');
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Durée',
+                          labelStyle: GoogleFonts.inter(),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Membres du projet',
+                        style: GoogleFonts.interTight(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Ajouter un membre par email ou nom',
+                        style: GoogleFonts.interTight(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _newMemberController,
+                        decoration: InputDecoration(
+                          labelText: 'Rechercher un membre',
+                          labelStyle: GoogleFonts.inter(),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                          suffixIcon:
+                              _isSearchingUser
+                                  ? Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
                                       ),
                                     ),
                                   )
-                                  .toList(),
-                          onChanged: (val) {
-                            setState(() => _dureeController.text = val ?? '');
-                          },
-                          decoration: InputDecoration(
-                            labelText: 'Durée',
-                            labelStyle: GoogleFonts.inter(),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Membres du projet',
-                          style: GoogleFonts.interTight(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Ajouter un membre par email ou nom',
-                          style: GoogleFonts.interTight(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _newMemberController,
-                          decoration: InputDecoration(
-                            labelText: 'Rechercher un membre',
-                            labelStyle: GoogleFonts.inter(),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                            suffixIcon:
-                                _isSearchingUser
-                                    ? Padding(
-                                      padding: const EdgeInsets.all(12.0),
-                                      child: SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    )
-                                    : Icon(
-                                      Icons.search,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                          ),
-                          style: GoogleFonts.inter(),
-                          onChanged: (val) => _searchUsers(val),
-                        ),
-                        if (_userSuggestions.isNotEmpty)
-                          Container(
-                            constraints: BoxConstraints(maxHeight: 200),
-                            child: ListView.builder(
-                              shrinkWrap: true,
-                              itemCount: _userSuggestions.length,
-                              itemBuilder: (context, index) {
-                                final user = _userSuggestions[index];
-                                final email = user['email'];
-                                final nom = user['nom'];
-                                final prenom = user['prenom'];
-                                final alreadyAdded = _membres.contains(email);
-                                return ListTile(
-                                  title: Text(
-                                    '$prenom $nom',
-                                    style: GoogleFonts.inter(),
+                                  : Icon(
+                                    Icons.search,
+                                    color: theme.colorScheme.primary,
                                   ),
-                                  subtitle: Text(
-                                    email,
-                                    style: GoogleFonts.inter(fontSize: 13),
-                                  ),
-                                  trailing:
-                                      alreadyAdded
-                                          ? Icon(
-                                            Icons.check,
+                        ),
+                        style: GoogleFonts.inter(),
+                        onChanged: (val) => _searchUsers(val),
+                      ),
+                      if (_userSuggestions.isNotEmpty)
+                        Container(
+                          constraints: BoxConstraints(maxHeight: 200),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: _userSuggestions.length,
+                            itemBuilder: (context, index) {
+                              final user = _userSuggestions[index];
+                              final email = user['email'];
+                              final nom = user['nom'];
+                              final prenom = user['prenom'];
+                              final alreadyAdded = _membres.contains(email);
+                              return ListTile(
+                                title: Text(
+                                  '$prenom $nom',
+                                  style: GoogleFonts.inter(),
+                                ),
+                                subtitle: Text(
+                                  email,
+                                  style: GoogleFonts.inter(fontSize: 13),
+                                ),
+                                trailing:
+                                    alreadyAdded
+                                        ? Icon(
+                                          Icons.check,
+                                          color: theme.colorScheme.primary,
+                                        )
+                                        : IconButton(
+                                          icon: Icon(
+                                            Icons.add,
                                             color: theme.colorScheme.primary,
-                                          )
-                                          : IconButton(
-                                            icon: Icon(
-                                              Icons.add,
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                            onPressed: () {
-                                              if (!alreadyAdded) {
-                                                setState(() {
-                                                  _membres.add(email);
-                                                  _newMemberController.clear();
-                                                  _userSuggestions = [];
-                                                });
-                                              }
-                                            },
                                           ),
-                                );
-                              },
-                            ),
+                                          onPressed: () {
+                                            if (!alreadyAdded) {
+                                              setState(() {
+                                                _membres.add(email);
+                                                _newMemberController.clear();
+                                                _userSuggestions = [];
+                                              });
+                                            }
+                                          },
+                                        ),
+                              );
+                            },
                           ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          value: _statutController.text,
-                          items:
-                              _statutOptions.map((String statut) {
-                                return DropdownMenuItem<String>(
-                                  value: statut,
-                                  child: Text(
-                                    statut,
-                                    style: GoogleFonts.inter(),
-                                  ),
-                                );
-                              }).toSet().toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _statutController.text = value!;
-                            });
-                          },
-                          decoration: InputDecoration(
-                            labelText: 'Statut du projet*',
-                            labelStyle: GoogleFonts.inter(),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                          validator:
-                              (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Ce champ est obligatoire'
-                                      : null,
                         ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: _statutController.text,
+                        items:
+                            _statutOptions.map((String statut) {
+                              return DropdownMenuItem<String>(
+                                value: statut,
+                                child: Text(
+                                  statut,
+                                  style: GoogleFonts.inter(),
+                                ),
+                              );
+                            }).toSet().toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _statutController.text = value!;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Statut du projet*',
+                          labelStyle: GoogleFonts.inter(),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: theme.colorScheme.surface,
+                        ),
+                        validator:
+                            (value) =>
+                                value == null || value.isEmpty
+                                    ? 'Ce champ est obligatoire'
+                                    : null,
+                      ),
 
-                        const SizedBox(height: 8),
-                        ..._membres.map(
-                          (email) => Card(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
+                      const SizedBox(height: 8),
+                      ..._membres.map(
+                        (email) => Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            title: Text(email, style: GoogleFonts.inter()),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.remove_circle_outline),
+                              onPressed: () => _removeMember(email),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _saveProject,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: ListTile(
-                              title: Text(email, style: GoogleFonts.inter()),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.remove_circle_outline),
-                                onPressed: () => _removeMember(email),
-                              ),
+                          ),
+                          child: Text(
+                            'Enregistrer les modifications',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _saveProject,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.colorScheme.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              'Enregistrer les modifications',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ),
+    );
+  }
+
+  Widget _buildImagePlaceholder(ThemeData theme) {
+    return Center(
+      child: Text(
+        'Aucune image',
+        style: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: theme.colorScheme.onSurface.withOpacity(0.5),
+        ),
+      ),
     );
   }
 }
