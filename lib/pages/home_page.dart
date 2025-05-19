@@ -368,14 +368,22 @@ class _HomePageState extends State<HomePage> {
                         },
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            data['imageUrl'] ??
-                                'https://via.placeholder.com/80x80.png?text=Projet',
+                          child: Container(
                             width: 80,
                             height: 80,
-                            fit: BoxFit.cover,
-                            errorBuilder:
-                                (_, __, ___) => const Icon(Icons.broken_image),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceVariant,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: data['imageUrl'] != null
+                                ? Image.network(
+                                    data['imageUrl']!,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _buildImagePlaceholder(theme),
+                                  )
+                                : _buildImagePlaceholder(theme),
                           ),
                         ),
                         title: Text(
@@ -423,6 +431,35 @@ class _HomePageState extends State<HomePage> {
                   },
                 );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder(ThemeData theme) {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.image_outlined,
+            size: 24,
+            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Photo',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
             ),
           ),
         ],

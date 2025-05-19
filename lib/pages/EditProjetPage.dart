@@ -780,14 +780,43 @@ class _EditProjectPageState extends State<EditProjectPage> {
   }
 
   Widget _buildImagePlaceholder(ThemeData theme) {
-    return Center(
-      child: Text(
-        'Aucune image',
-        style: GoogleFonts.inter(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: theme.colorScheme.onSurface.withOpacity(0.5),
+    return Container(
+      width: double.infinity,
+      height: 200,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.5),
+          width: 2,
         ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.add_photo_alternate_outlined,
+            size: 48,
+            color: theme.colorScheme.primary.withOpacity(0.7),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Ajouter une photo',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.primary.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Cliquez pour sélectionner une image',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
+        ],
       ),
     );
   }
