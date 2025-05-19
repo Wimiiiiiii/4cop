@@ -217,6 +217,7 @@ class UserProfilePage extends StatelessWidget {
                     'createdAt': FieldValue.serverTimestamp(),
                     'lastMessage': '',
                     'lastMessageTime': FieldValue.serverTimestamp(),
+                    'timestamp': FieldValue.serverTimestamp(),
                   });
             }
             

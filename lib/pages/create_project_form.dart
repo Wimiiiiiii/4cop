@@ -101,7 +101,7 @@ class _CreateProjectFormState extends State<CreateProjectForm> {
             'titre': _titreController.text.trim(),
             'resume': _resumeController.text.trim(),
             'description': _descriptionController.text.trim(),
-            'statut':'En attente de lancement',
+            'statut':'En attente',
             'theme':
                 _themeController.text.trim().isNotEmpty
                     ? _themeController.text.trim()

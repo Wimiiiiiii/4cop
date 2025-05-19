@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/drawer_menu.dart';
 import 'project_detail_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'inbox_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -139,6 +140,15 @@ class _HomePageState extends State<HomePage> {
               ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.message),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => InboxPage()),
+              );
+            },
+          ),
           IconButton(
             icon: Icon(
               showFavoritesOnly ? Icons.star : Icons.star_border,

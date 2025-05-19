@@ -251,6 +251,15 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
+  Future<void> resetPassword() async {
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: _user.email!);
+      _showSuccessSnackbar('Email de réinitialisation envoyé.');
+    } on FirebaseAuthException catch (e) {
+      _showErrorSnackbar('Erreur lors de l\'envoi de l\'email : ${e.message}');
+    }
+  }
+
   void _showSuccessSnackbar(String message) {
     _scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.green),
@@ -411,6 +420,20 @@ class _AccountPageState extends State<AccountPage> {
                                   (value) =>
                                       value!.isEmpty ? 'Champ requis' : null,
                               style: GoogleFonts.interTight(),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              icon: Icon(Icons.lock_outline),
+                              label: Text('Modifier le mot de passe'),
+                              onPressed: resetPassword,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.secondary,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
                             ),
                           ],
                         ),
