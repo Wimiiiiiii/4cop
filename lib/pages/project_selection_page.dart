@@ -180,7 +180,7 @@ class _ProjectSelectionPageState extends State<ProjectSelectionPage> {
                       final data = projet.data() as Map<String, dynamic>;
 
                       final String title = data['titre'] ?? 'Sans titre';
-                      final String status = data['status'] ?? 'Indéfini';
+                      final String status = data['statut'] ?? 'Indéfini';
                       final String themeName = data['theme'] ?? '';
                       final String date = data['date'] ?? '';
                       final statusColor = _getStatusColor(status, theme);
