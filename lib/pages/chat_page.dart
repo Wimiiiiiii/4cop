@@ -608,11 +608,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _launchFile(String url) async {
     try {
-      if (await canLaunch(url)) {
-        await launch(url);
-      } else {
-        throw 'Impossible d\'ouvrir le fichier';
-      }
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur lors de l\'ouverture du fichier: $e')),

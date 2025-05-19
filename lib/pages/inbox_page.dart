@@ -104,7 +104,7 @@ class _InboxPageState extends State<InboxPage> {
               FirebaseFirestore.instance
                   .collection('chats')
                   .where('participants', arrayContains: currentUser.uid)
-                  .orderBy('timestamp', descending: true)
+                  .orderBy('lastMessageTime', descending: true)
                   .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -289,160 +289,159 @@ class _InboxPageState extends State<InboxPage> {
       builder: (context, msgSnapshot) {
         String subtitle = 'Appuyez pour discuter';
         bool hasUnread = false;
+        Timestamp? lastMessageTime;
 
         if (msgSnapshot.hasData && msgSnapshot.data!.docs.isNotEmpty) {
           final lastMessage = msgSnapshot.data!.docs.first;
           subtitle = lastMessage['text'] ?? '';
-
-          // Vérification des messages non lus
-          if (lastMessage['senderId'] != currentUser.uid) {
-            final lastSeenField = 'lastSeen_${currentUser.uid}';
-            hasUnread =
-                true; // Par défaut, on considère le message comme non lu
-
-            // Vérification du lastSeen
-            FirebaseFirestore.instance
-                .collection('chats')
-                .doc(chatId)
-                .get()
-                .then((doc) {
-                  final lastSeen = doc.data()?[lastSeenField] as Timestamp?;
-                  final messageTime = lastMessage['timestamp'] as Timestamp?;
-
-                  if (lastSeen != null && messageTime != null) {
-                    hasUnread = messageTime.toDate().isAfter(lastSeen.toDate());
-                  }
-                });
-          }
+          lastMessageTime = lastMessage['timestamp'] as Timestamp?;
         }
 
-        return Container(
-          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: theme.colorScheme.surface,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 8,
-                offset: Offset(0, 4),
+        return FutureBuilder<DocumentSnapshot>(
+          future:
+              FirebaseFirestore.instance.collection('chats').doc(chatId).get(),
+          builder: (context, chatSnapshot) {
+            if (chatSnapshot.hasData &&
+                chatSnapshot.data!.exists &&
+                lastMessageTime != null) {
+              final data =
+                  chatSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+              final lastSeen =
+                  data['lastSeen_${currentUser.uid}'] as Timestamp?;
+              if (lastSeen == null ||
+                  lastSeen.toDate().isBefore(lastMessageTime.toDate())) {
+                hasUnread = true;
+              } else {
+                hasUnread = false;
+              }
+            }
+            return Container(
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: theme.colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Material(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () {
-                // Mise à jour du lastSeen avant la navigation
-                FirebaseFirestore.instance
-                    .collection('chats')
-                    .doc(chatId)
-                    .update({
-                      'lastSeen_${currentUser.uid}':
-                          FieldValue.serverTimestamp(),
-                    });
-                onTap();
-              },
-              onLongPress: () async {
-                final confirm = await showDialog(
-                  context: context,
-                  builder:
-                      (_) => AlertDialog(
-                        title: Text(
-                          'Supprimer cette conversation ?',
-                          style: GoogleFonts.inter(),
+              child: Material(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    FirebaseFirestore.instance
+                        .collection('chats')
+                        .doc(chatId)
+                        .update({
+                          'lastSeen_${currentUser.uid}':
+                              FieldValue.serverTimestamp(),
+                        });
+                    onTap();
+                  },
+                  onLongPress: () async {
+                    final confirm = await showDialog(
+                      context: context,
+                      builder:
+                          (_) => AlertDialog(
+                            title: Text(
+                              'Supprimer cette conversation ?',
+                              style: GoogleFonts.inter(),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: Text(
+                                  'Annuler',
+                                  style: GoogleFonts.inter(
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text(
+                                  'Supprimer',
+                                  style: GoogleFonts.inter(
+                                    color: theme.colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                    );
+                    if (confirm == true) {
+                      onDelete();
+                    }
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color:
+                                isGroup
+                                    ? theme.colorScheme.tertiaryContainer
+                                    : theme.colorScheme.secondaryContainer,
+                          ),
+                          child: Icon(
+                            isGroup ? Icons.group : Icons.person,
+                            color:
+                                isGroup
+                                    ? theme.colorScheme.onTertiaryContainer
+                                    : theme.colorScheme.onSecondaryContainer,
+                          ),
                         ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: Text(
-                              'Annuler',
-                              style: GoogleFonts.inter(
-                                color: theme.colorScheme.onSurface,
+                        SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: GoogleFonts.interTight(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: Text(
-                              'Supprimer',
-                              style: GoogleFonts.inter(
-                                color: theme.colorScheme.error,
+                              SizedBox(height: 4),
+                              Text(
+                                subtitle,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.7),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
-                );
-                if (confirm == true) {
-                  onDelete();
-                }
-              },
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color:
-                            isGroup
-                                ? theme.colorScheme.tertiaryContainer
-                                : theme.colorScheme.secondaryContainer,
-                      ),
-                      child: Icon(
-                        isGroup ? Icons.group : Icons.person,
-                        color:
-                            isGroup
-                                ? theme.colorScheme.onTertiaryContainer
-                                : theme.colorScheme.onSecondaryContainer,
-                      ),
-                    ),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: GoogleFonts.interTight(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            subtitle,
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.7,
-                              ),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (hasUnread)
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: theme.colorScheme.error,
                         ),
-                      ),
-                  ],
+                        if (hasUnread)
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
