@@ -406,17 +406,52 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildMessageBubble(DocumentSnapshot message) {
     final data = message.data() as Map<String, dynamic>;
     final isMe = data['senderId'] == FirebaseAuth.instance.currentUser!.uid;
-    if (data['fileUrl'] != null) {
-      return _buildFileMessage(
-        data['fileUrl'],
-        data['fileName'],
-        data['fileType'],
-        data['fileSize'],
-        isMe,
-      );
-    } else {
-      return _buildTextMessage(data['text'], isMe);
-    }
+    final messageWidget =
+        data['fileUrl'] != null
+            ? _buildFileMessage(
+              data['fileUrl'],
+              data['fileName'],
+              data['fileType'],
+              data['fileSize'],
+              isMe,
+            )
+            : _buildTextMessage(data['text'], isMe);
+
+    return GestureDetector(
+      onLongPress:
+          isMe
+              ? () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: Text('Supprimer ce message ?'),
+                        content: Text('Cette action est irréversible.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: Text('Annuler'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: Text(
+                              'Supprimer',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                );
+                if (confirm == true) {
+                  await message.reference.delete();
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Message supprimé.')));
+                }
+              }
+              : null,
+      child: messageWidget,
+    );
   }
 
   IconData _getFileIcon(String? fileType) {
